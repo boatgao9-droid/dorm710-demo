@@ -1,0 +1,1246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0f16">
+<title>宿舍环境 · PMV</title>
+<style>
+  :root{
+    --bg:#0b0f16; --panel:#141a24; --panel2:#1a2230;
+    --line:#243040; --txt:#e8eef7; --dim:#8b9bb0;
+    --hot:#ff5d5d; --cool:#4aa8ff; --ok:#31c48d; --warn:#f5a524;
+    --ac:#f97316; --bad:#ff5d5d;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{
+    margin:0;background:var(--bg);color:var(--txt);
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    padding:14px 14px calc(28px + env(safe-area-inset-bottom));
+    max-width:1180px;margin:0 auto;
+  }
+  header{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin:4px 0 14px}
+  h1{font-size:19px;margin:0;font-weight:650;letter-spacing:.3px}
+  .sub{font-size:12px;color:var(--dim);text-align:right;line-height:1.45}
+  .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ok);margin-right:5px;vertical-align:1px}
+  .dot.off{background:#5b6b80}
+  .hero{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:12px}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 13px}
+  .kpi .k{font-size:11px;color:var(--dim);letter-spacing:.6px}
+  .kpi .v{font-size:26px;font-weight:660;line-height:1.25;margin-top:2px;font-variant-numeric:tabular-nums}
+  .kpi .u{font-size:13px;color:var(--dim);font-weight:400;margin-left:2px}
+  .kpi .s{font-size:11px;color:var(--dim);margin-top:1px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:10px;margin-bottom:12px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 13px}
+  .card .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .card .nm{font-weight:600;font-size:14px}
+  .card .tag{font-size:11px;padding:1px 7px;border-radius:20px;background:var(--panel2);color:var(--dim)}
+  .card .tag.on{background:rgba(49,196,141,.16);color:var(--ok)}
+  .card .tag.offline{background:rgba(139,155,176,.14)}
+  /* 每块板两路 DHT22 的小表：DHT1 / DHT2 各一组温湿度 */
+  .th{display:grid;grid-template-columns:40px 1fr 1fr;gap:3px 6px;font-size:13px;margin:2px 0 7px}
+  .th .h{font-size:10px;color:var(--dim);letter-spacing:.5px;padding-bottom:2px;
+         border-bottom:1px solid var(--line)}
+  .th .k{color:var(--dim);font-size:12px}
+  .th b{color:var(--txt);font-weight:600;font-variant-numeric:tabular-nums;text-align:right}
+  .th b.miss{color:#556478;font-weight:400}
+  .row{display:flex;justify-content:space-between;font-size:13px;padding:3px 0;color:var(--dim)}
+  .row b{color:var(--txt);font-weight:600;font-variant-numeric:tabular-nums}
+  .bar{height:5px;border-radius:4px;background:var(--panel2);overflow:hidden;margin:7px 0 9px}
+  .bar>i{display:block;height:100%;border-radius:4px;transition:width .4s}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 12px 6px;margin-bottom:12px}
+  .panel h2{font-size:13px;margin:0 0 8px;font-weight:600;color:#cbd8e8;display:flex;justify-content:space-between}
+  .panel h2 span{font-weight:400;color:var(--dim);font-size:11px}
+  canvas{width:100%;display:block}
+  .c1{height:170px}.c2{height:130px}
+  .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--dim);margin:0 0 8px}
+  .legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:0}
+  .legend i.dash{background:none;height:0;width:12px;border-radius:0;
+                 border-top:2px dashed #fff;vertical-align:3px}
+  .ctrl{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+  .cbox{background:var(--panel2);border-radius:12px;padding:10px}
+  .cbox .t{font-size:12px;color:var(--dim);margin-bottom:8px}
+  .btns{display:flex;flex-wrap:wrap;gap:7px}
+  button{
+    font:inherit;font-size:13px;padding:8px 13px;border-radius:9px;cursor:pointer;
+    border:1px solid var(--line);background:#1f2937;color:var(--txt);transition:.15s;
+  }
+  button:hover{background:#26344a;border-color:#33465e}
+  button:active{transform:scale(.97)}
+  button.on{background:rgba(49,196,141,.16);border-color:rgba(49,196,141,.4);color:#7ef0c0}
+  button.off{background:rgba(255,93,93,.13);border-color:rgba(255,93,93,.35);color:#ffa3a3}
+  button.t{min-width:52px}
+  #toast{
+    position:fixed;left:50%;bottom:22px;transform:translate(-50%,20px);
+    background:#1f2937;border:1px solid var(--line);color:var(--txt);
+    padding:9px 16px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;
+    transition:.25s;z-index:99;box-shadow:0 8px 24px rgba(0,0,0,.4)
+  }
+  #toast.show{opacity:1;transform:translate(-50%,0)}
+  .foot{font-size:11px;color:#5b6b80;text-align:center;margin-top:6px;line-height:1.7}
+  .foot a{color:#7fa6d4;text-decoration:none}
+
+  /* ---------------- 总控：模式 A / 模式 B ---------------- */
+  .modes{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .modebtn{text-align:left;padding:12px 14px;border-radius:12px;background:var(--panel2);
+           border:1px solid var(--line);cursor:pointer;transition:.15s;position:relative;
+           font:inherit;color:var(--txt)}
+  .modebtn .mt{font-size:14px;font-weight:650;margin-bottom:3px;color:#cbd8e8}
+  .modebtn .md{font-size:11px;color:var(--dim);line-height:1.55}
+  .modebtn.on{background:rgba(49,196,141,.13);border-color:rgba(49,196,141,.5)}
+  .modebtn.on .mt{color:#7ef0c0}
+  .modebtn.on:after{content:"当前";position:absolute;right:10px;top:10px;font-size:10px;
+    background:rgba(49,196,141,.2);color:#7ef0c0;padding:1px 7px;border-radius:20px}
+  .decide{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;
+          background:var(--panel2);border-radius:12px;padding:11px 12px}
+  .decide .act{font-size:15px;font-weight:660}
+  .decide .sp{font-size:15px;font-weight:660;font-variant-numeric:tabular-nums}
+  .decide .rs{font-size:12px;color:var(--dim);flex:1;min-width:150px;line-height:1.55}
+  .decide .src{font-size:10px;color:#7f90a6;border:1px solid var(--line);padding:1px 7px;border-radius:20px;white-space:nowrap}
+  .sw{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--dim);
+      margin-top:10px;flex-wrap:wrap}
+  .sw input[type=checkbox]{width:16px;height:16px;accent-color:#31c48d;margin:0}
+  .pill{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:20px;
+        padding:2px 9px;font-size:11px;color:#a9b8ca}
+  /* 舒适区滑块 */
+  .bandbox{margin-top:10px;padding:9px 12px 10px;border:1px solid var(--line);
+           border-radius:11px;background:rgba(255,255,255,.03)}
+  .bandbox .bl{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;
+               font-size:12px;color:#c7d3e0}
+  .bandbox .bl b{color:#7ef0c0;font-size:15px;font-variant-numeric:tabular-nums}
+  .bandbox .bnote{font-size:11px;color:var(--dim)}
+  #bandRange{display:block;width:100%;margin:9px 0 4px;height:18px;
+             accent-color:#31c48d;cursor:pointer;background:transparent}
+  .bscale{display:flex;justify-content:space-between;font-size:10.5px;
+          color:#6f8098;margin:-2px 0 2px}
+  .brow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+        font-size:11.5px;color:var(--dim);min-height:26px}
+  .brow button{padding:4px 11px;font-size:11.5px;border-radius:8px}
+  .irmsg{min-width:0;word-break:break-word}
+  .pill b{color:var(--txt);font-variant-numeric:tabular-nums}
+
+  /* ---------------- 红外发射记录 ---------------- */  .irtx{display:flex;flex-direction:column;max-height:300px;overflow-y:auto;
+        margin:-2px 0 0}
+  .irrow{display:grid;grid-template-columns:52px auto minmax(0,1fr) auto;
+         gap:8px;align-items:baseline;padding:7px 2px;
+         border-top:1px dashed rgba(255,255,255,.07);font-size:12.5px}
+  .irrow:first-child{border-top:0}
+  .irrow .tm{color:#6f8098;font-size:11px;font-variant-numeric:tabular-nums}
+  .irb{font-size:10px;padding:1px 6px;border-radius:20px;white-space:nowrap;
+       border:1px solid transparent;justify-self:start}
+  .irb.auto{background:rgba(90,160,255,.14);color:#8fc0ff;border-color:rgba(90,160,255,.3)}
+  .irb.manual{background:rgba(255,170,60,.14);color:#ffc06a;border-color:rgba(255,170,60,.28)}
+  .irb.test{background:rgba(170,130,255,.16);color:#c8a8ff;border-color:rgba(170,130,255,.32)}
+  .irrow .sig{color:#dbe6f3;font-weight:600;min-width:0;word-break:break-word}
+  .irrow .sig .bd{color:#7f90a6;font-weight:400;font-size:11px;margin-left:6px;white-space:nowrap}
+  .irrow .st{font-size:11px;white-space:nowrap}
+  .st.ok{color:var(--ok)} .st.wait{color:#ffc06a} .st.queue{color:#8b9bb0}
+  .irrow .why{grid-column:2 / -1;font-size:11px;color:#5b6b80;line-height:1.55;
+              margin-top:-3px;word-break:break-word}
+  .irrow .fr{font-family:ui-monospace,Consolas,monospace;color:#71839a;letter-spacing:.3px}
+  .irempty{padding:9px 2px;font-size:12px;color:#5b6b80;line-height:1.6}
+
+  /* ---------------- 温度分布图 ---------------- */
+  .heatbar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:7px}
+  .heatbar button{padding:5px 10px;font-size:12px;border-radius:8px}
+  #cHeat{height:340px;max-width:660px;margin:0 auto;touch-action:none;cursor:default}
+  #cHeat.edit{cursor:grab}
+  .scale{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim)}
+  .scale .gr{width:104px;height:8px;border-radius:4px;
+    background:linear-gradient(90deg,#2d55b9,#3496d7,#3cbebe,#32af78,#b9be4b,#eb9137,#dc4141)}
+  .hint{font-size:11px;color:#5b6b80;line-height:1.65;margin-top:4px}
+
+  /* ---------------- 手机访问 ---------------- */
+  .phone{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+  .phone img{width:104px;height:104px;background:#fff;border-radius:8px;padding:5px}
+  .phone .u{font-size:17px;font-weight:650;letter-spacing:.4px;
+            font-variant-numeric:tabular-nums;word-break:break-all}
+  .phone .t{font-size:12px;color:var(--dim);line-height:1.75;margin-top:3px}
+
+  @media (max-width:560px){
+    .modes{grid-template-columns:1fr}
+    #cHeat{height:250px}
+    .decide .rs{min-width:100%}
+  }
+  @media (max-width:560px){
+    body{padding:12px 12px 24px}
+    .hero{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .kpi .v{font-size:23px}
+    .kpi,.card{min-width:0}
+    .grid{grid-template-columns:minmax(0,1fr)}
+    header{flex-direction:column;align-items:flex-start}
+    .sub{text-align:left}
+    .panel h2{flex-wrap:wrap;gap:2px}
+    .panel h2 span{font-size:10px}
+  }
+  .space-panel{padding:16px;min-width:0}
+  .space-panel h2{font-size:16px;align-items:center;gap:8px;margin-bottom:14px}
+  .space-panel h2 span{font-size:11px}
+  .heatbar{gap:8px;margin-bottom:12px}
+  .heatbar label,.space-edit label{display:flex;align-items:center;gap:6px;font-size:12px;color:#a9b8ca}
+  .space-panel select,.space-panel input[type=number]{font:inherit;background:#0d1520;color:#dbe6f3;border:1px solid #304155;border-radius:6px;padding:6px;min-width:0;max-width:100%}
+  .view-switch{display:flex;padding:3px;background:#0d1520;border:1px solid #243040;border-radius:10px;gap:3px}
+  .view-switch button{border-color:transparent;background:transparent}
+  .view-switch button.on{background:#243c46;color:#a1f2d5}
+  #layoutStatus{font-size:11px;color:#8b9bb0;margin-left:auto}
+  .space-layers{display:flex;flex-wrap:wrap;gap:8px 17px;padding:0 0 12px;font-size:12px;color:#9cadc3}
+  .space-layers label{display:flex;align-items:center;gap:5px;cursor:pointer}
+  .space-panel input[type=checkbox]{accent-color:#42cfa4}
+  .space-stage{position:relative;border:1px solid #263443;border-radius:12px;background:radial-gradient(ellipse at 50% 45%,#192532,#0d141e 80%);min-width:0}
+  #cHeat{height:550px;width:100%;max-width:100%;margin:0;touch-action:pan-y}
+  #cHeat.edit{touch-action:none;cursor:grab}
+  #spaceTip{position:absolute;z-index:2;pointer-events:none;font-size:12px;padding:7px 10px;border:1px solid #577189;border-radius:7px;background:#0b121fed;color:#eff7ff;white-space:pre-line;max-width:210px;box-shadow:0 4px 18px #0007}
+  [hidden]{display:none!important}
+  .space-key{display:flex;align-items:center;flex-wrap:wrap;gap:8px 20px;padding:13px 0 3px;font-size:11px;color:#8fabc0}
+  .test-key{display:inline-block;width:13px;height:8px;border:1px dashed #64b4dc;margin-right:4px}
+  .space-key .scale{flex-wrap:wrap}.space-key .gr{width:140px;max-width:35vw}
+  .space-edit{display:flex;gap:10px 14px;flex-wrap:wrap;background:#0d1520;padding:12px;border:1px solid #27384b;border-radius:9px;margin-bottom:12px}
+  .space-edit input[type=number]{width:70px}.space-edit select{max-width:150px}.edit-note{width:100%;font-size:11px;color:#718ba3}
+  #heatHint{color:#8b9bb0;margin-top:7px;overflow-wrap:anywhere}
+  @media(max-width:560px){
+    .space-panel{padding:11px}.space-panel h2{font-size:14px;align-items:flex-start}
+    #cHeat{height:270px}.heatbar{gap:7px}.heatbar button{padding:5px 8px;font-size:11px}
+    #layoutStatus{margin-left:0;flex-basis:100%}.space-layers{gap:8px 12px;font-size:11px}
+    .space-key{gap:7px 12px;font-size:10px}.space-key .gr{width:95px}
+    .space-edit{gap:8px}.space-edit label{font-size:11px}.space-edit input[type=number]{width:62px}
+  }
+
+  .personal-panel{padding:16px;min-width:0;border-color:#36525c}
+  .personal-panel h2{font-size:15px;align-items:center;gap:8px}
+  .personal-panel h3{font-size:13px;color:#c4d6e5;margin:0 0 10px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+  .personal-panel h3 span{font-size:10px;font-weight:400;color:#8b9bb0}
+  .personal-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:13px 0}
+  .personal-metrics>div{padding:12px;border:1px solid #2c4352;background:#10202b;border-radius:10px;min-width:0}
+  .personal-metrics span,.personal-metrics small{display:block;font-size:11px;color:#88a1b4}
+  .personal-metrics strong{display:block;font-size:26px;font-weight:600;color:#a0ebd9;font-variant-numeric:tabular-nums;margin:3px 0}
+  .personal-columns{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(0,1fr);gap:12px}
+  .personal-sub{padding:13px;background:#101722;border:1px solid #263c4a;border-radius:10px;min-width:0}
+  .personal-panel .hint{color:#8b9fb3;overflow-wrap:anywhere}
+  .learning-records{max-height:270px;overflow:auto;margin:8px 0;min-height:100px}
+  .learning-row{display:grid;grid-template-columns:18px minmax(0,1fr);gap:7px;padding:9px 0;border-bottom:1px solid #253646;font-size:12px}
+  .learning-row input{accent-color:#45cfb0;margin-top:4px}.learning-row .record-meta{display:block;line-height:1.6;font-size:10px;color:#8297ae;margin:3px 0}
+  .learning-row code{display:block;font-size:10px;overflow-wrap:anywhere;color:#8aa8bb;white-space:normal}
+  .learning-row.invalid{color:#ccaa83}.learning-empty{font-size:12px;color:#a0b3c7;padding:18px 6px;line-height:1.8}
+  .personal-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0}
+  .personal-panel button{padding:7px 11px;font-size:12px}
+  .manual-pref{display:flex;align-items:center;gap:7px;flex-wrap:wrap;border-top:1px solid #293b4b;padding-top:12px;margin-top:12px;font-size:12px;color:#b4c7d9}
+  .personal-panel input[type=number],.personal-panel select{font:inherit;padding:6px;border-radius:6px;background:#0b141e;color:#e0edf5;border:1px solid #385165;min-width:0;max-width:100%}
+  .manual-pref input{width:60px}.cycle-stages{display:flex;gap:7px;flex-wrap:wrap;font-size:11px;color:#91a4b8;margin:15px 0}
+  .cycle-stages span{padding:5px 8px;background:#1a2a38;border-radius:7px}.cycle-stages .active{background:#1a4b47;color:#a7f5dc}
+  #personalProgress{width:100%;height:7px;accent-color:#45cbb0}.personal-reason{font-size:13px;line-height:1.8;color:#b5c9d9;min-height:65px}
+  .forecast-section{margin-top:13px;border-top:1px solid #2c4050;padding-top:15px}
+  .forecast-config{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px}
+  .forecast-config label{display:flex;align-items:center;gap:7px;color:#a3bbcd}.forecast-config select{max-width:190px}
+  .forecast-values{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0;font-size:12px;color:#a1b9cc}.forecast-values>div{background:#101d2a;padding:10px 14px;border-radius:8px}.forecast-values b{color:#b0e3f5;font-size:18px;margin-left:10px}
+  @media(max-width:560px){.personal-panel{padding:11px}.personal-columns{grid-template-columns:minmax(0,1fr)}.personal-metrics{gap:6px}.personal-metrics>div{padding:9px 7px}.personal-metrics strong{font-size:22px}.personal-metrics small,.personal-metrics span{font-size:10px}.personal-panel h2{flex-wrap:wrap}.personal-sub{padding:11px}.forecast-config label{width:100%;justify-content:space-between}.forecast-config select{flex:1}.forecast-values>div{width:100%}}
+
+</style>
+</head>
+<body><div style="padding:10px 14px;background:#284642;border:1px solid #5ab9a0;border-radius:10px;margin-bottom:12px;color:#c4ffec">展示镜像 · 全部为模拟数据 · 未连接 ESP / 不控制真实空调</div>
+<p style="color:#8eabc2;font-size:12px">模拟时间轴：约90秒降温，随后以10倍速回放5分钟维持过程，再展示关机。历史曲线同为演示数据。</p>
+<header>
+  <div>
+    <h1>宿舍环境监测</h1>
+    <div class="sub" id="clock" style="text-align:left">—</div>
+  </div>
+  <div class="sub" id="conn"><span class="dot off"></span>连接中…</div>
+</header>
+
+<section class="hero">
+  <div class="kpi"><div class="k">室温</div>
+    <div class="v" id="kTa">--<span class="u">℃</span></div>
+    <div class="s" id="kTaS">&nbsp;</div></div>
+  <div class="kpi"><div class="k">湿度</div>
+    <div class="v" id="kRh">--<span class="u">%</span></div>
+    <div class="s" id="kRhS">&nbsp;</div></div>
+  <div class="kpi"><div class="k">PMV 热感觉</div>
+    <div class="v" id="kPmv">--</div>
+    <div class="s" id="kPmvS">&nbsp;</div></div>
+  <div class="kpi"><div class="k">空调</div>
+    <div class="v" id="kAc">--</div>
+    <div class="s" id="kAcS">&nbsp;</div></div>
+  <div class="kpi"><div class="k">人体存在</div>
+    <div class="v" id="kPir">--</div>
+    <div class="s" id="kPirS">&nbsp;</div></div>
+</section>
+
+<section class="panel">
+  <h2>远程控制 <span>只控制主控板 · 红外收发都在主控板完成</span></h2>
+  <div class="ctrl" id="ctrl"></div>
+</section>
+
+<section class="panel" id="modePanel">
+  <h2>总控 <span>选一种模式，决定"自动调温"按什么判据走</span></h2>
+  <div class="modes" id="modes"></div>
+  <div class="bandbox" id="bandBox">
+    <div class="bl">
+      <span>舒适区阈值 |PMV| ≤ <b id="bandVal">0.50</b></span>
+      <span class="bnote">调小 = 更严格，轻微偏离就出手；ISO 7730 常用 0.5</span>
+    </div>
+    <input type="range" id="bandRange" min="0.1" max="1" step="0.05" value="0.5"
+           aria-label="舒适区阈值">
+    <div class="bscale"><span>0.10 · 最严格</span><span>1.00 · 最宽松</span></div>
+    <div class="brow">
+      <span id="bandNow">当前 PMV --</span>
+      <button id="btnIrTest">测试红外发射</button>
+      <span id="irTestMsg" class="irmsg"></span>
+    </div>
+  </div>
+  <div class="decide" id="decide">
+    <div class="act" style="color:#71839a">--</div>
+    <div class="rs">等待数据…</div>
+  </div>
+  <div class="sw">
+    <label style="display:flex;align-items:center;gap:7px;cursor:pointer">
+      <input type="checkbox" id="autoRun"> 自动执行
+    </label>
+    <span class="pill" id="shadowPill">影子模式 · 只给建议</span>
+    <span class="pill" id="prefPill">偏好 --</span>
+    <span class="pill" id="modelPill">模型 --</span>
+  </div>
+  <div class="hint" id="modeNote"></div>
+</section>
+
+<section class="panel personal-panel" id="personalPanel" hidden>
+  <h2>模式 B · 个性化学习 <span>实体遥控记录 → 选择偏好 → 测温反馈</span></h2>
+  <div class="personal-metrics">
+    <div><span>本轮制冷偏好</span><strong id="personalTarget">—</strong><small id="personalSource">尚未选择</small></div>
+    <div><span>当前有效室温</span><strong id="personalTemp">—</strong><small>DHT1 新鲜读数的平均值</small></div>
+    <div><span>低于 20℃ 后维持</span><strong id="personalCountdown">05:00</strong><small id="personalPhase">等待开始</small></div>
+  </div>
+  <div class="personal-columns">
+    <div class="personal-sub">
+      <h3>遥控器使用记录 <span id="learningCount">近 7 天</span></h3>
+      <div class="hint" id="receiverStatus">正在检查主控板红外接收状态…</div>
+      <div id="learningRecords" class="learning-records"></div>
+      <div class="personal-actions"><button id="adoptRecords">采用选中记录</button><span class="hint">按选中温度的中位数学习</span></div>
+      <div class="manual-pref"><label for="manualPreference">手动指定偏好</label><input id="manualPreference" type="number" min="16" max="19" step="1" value="19" aria-label="手动偏好温度"><span>℃</span><button id="adoptManual">采用此偏好</button></div>
+      <div class="hint">手动指定会注明来源，不计作遥控学习样本。自动发射的信号不参与偏好学习。</div>
+    </div>
+    <div class="personal-sub">
+      <h3>本轮控温 <span id="personalSendCount">尚未下发</span></h3>
+      <div class="cycle-stages"><span data-phase="cooling">① 制冷</span><span data-phase="holding">② 维持 5 分钟</span><span data-phase="complete">③ 关机</span></div>
+      <progress id="personalProgress" value="0" max="300" aria-label="低于20度的维持进度"></progress>
+      <p id="personalReason" class="personal-reason">等待偏好与温度数据。</p>
+      <div class="personal-actions"><button class="on" id="startPersonal">开始本轮控温</button><button id="pausePersonal">暂停自动下发</button></div>
+      <div class="hint">采用制冷模式与所选设定。室温未达标时，每隔 60 秒补发，最多 3 轮；达到阈值后连续维持 5 分钟再关机。温度回升或采集中断会重新计时。</div>
+    </div>
+  </div>
+  <div class="forecast-section">
+    <h3>历史模型 · 提前 15 分钟预测 <span id="forecastState">未就绪</span></h3>
+    <div class="forecast-config"><label>原始 A 测点<select id="forecastA" aria-label="历史模型A测点"></select></label><label>原始 B 测点<select id="forecastB" aria-label="历史模型B测点"></select></label><button id="saveForecastChannels">保存测点对应</button></div>
+    <div class="forecast-values"><div>模型 A · 降温代理评分 <b id="forecastProxy">—</b></div><div>模型 B · 未来 PMV <b id="forecastPmv">—</b></div></div>
+    <div id="forecastReason" class="hint"></div>
+    <div class="hint">2026-11-22 原始权重 · 最近 10 条连续 5 分钟记录（跨度 45 分钟）与逐小时室外天气。模型 A/B 与上方控制模式 A/B 含义不同；预测不覆盖你选定的个人偏好。</div>
+    <div id="forecastWeather" class="hint"></div>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>红外发射记录 <span id="irSpan">最近 12 条 · 自动 / 手动 / 舒适区测试</span></h2>
+  <div class="irtx" id="irTx">
+    <div class="irempty">还没有发射记录。点上面「测试红外发射」，或手动开机 / 调温，每一帧都会记在这里。</div>
+  </div>
+  <div class="hint">每条都写清了三件事：<b>谁触发的</b>（自动判定 / 网页手动 / 舒适区测试）、
+    <b>按什么判据</b>（模式 A 的 ±阈值 + 当时 PMV，或模式 B 的个性化规则）、
+    <b>发了什么</b>（开机 / 关机 / ±1℃ / 指定温度；主控板烧了 v4 固件后还会回传真实的 9 字节帧）。
+    改动舒适区后想确认红外到底发没发，看这里第一行就行。</div>
+</section>
+
+<div class="grid" id="nodes"></div>
+
+<section class="panel space-panel" id="spacePanel">
+  <h2>710 · 宿舍空间模型 <span id="heatSpan">正在读取布局</span></h2>
+  <div class="heatbar">
+    <div class="view-switch" role="group" aria-label="视图"><button data-view="plan">平面</button><button data-view="iso">等距 2.5D</button></div>
+    <label>显示 <select id="fieldMode" aria-label="场类型"><option value="t">温度</option><option value="rh">湿度</option><option value="pmv">PMV</option></select></label>
+    <button id="btnEditPt">编辑布局</button><button id="btnHeatSave" hidden>保存</button><button id="btnHeatReset">710 默认布局</button>
+    <span id="layoutStatus" role="status">布局读取中</span>
+  </div>
+  <div class="space-layers" aria-label="图层">
+    <label><input type="checkbox" data-layer="field">场分布</label>
+    <label><input type="checkbox" data-layer="contours">等值线</label>
+    <label><input type="checkbox" data-layer="openings">门窗</label>
+    <label><input type="checkbox" data-layer="furniture">家具</label>
+    <label><input type="checkbox" data-layer="labels">点位标签</label>
+    <label><input type="checkbox" data-layer="air">空调送风</label>
+  </div>
+  <div class="space-edit" id="layoutEditor" hidden>
+    <label>整体宽 m<input id="roomW" type="number" min="1" max="30" step="0.1"></label>
+    <label>整体深 m<input id="roomH" type="number" min="1" max="30" step="0.1"></label>
+    <label>层高 m<input id="roomHeight" type="number" min="2" max="8" step="0.1"></label>
+    <button id="applyRoom">应用尺寸</button>
+    <label>选中测点<select id="sensorSelect" aria-label="选择传感器"></select></label>
+    <label>安装高 m<input id="sensorZ" type="number" min="0" step="0.1"></label>
+    <label>门状态<select id="doorSelect" aria-label="选择门"></select></label>
+    <label><input id="doorOpen" type="checkbox">开启</label>
+    <label>空调沿墙 m<input id="acAt" type="number" min="0" step="0.1"></label>
+    <label>送风射程 m<input id="acThrow" type="number" min="0.1" max="15" step="0.1"></label>
+    <div class="edit-note">拖动圆点或旧布局中的家具，松手自动保存。成对测点同坐标时，请先选择要拖动的测点。调整房间宽深会按比例调整平面布局。</div>
+  </div>
+  <div class="space-stage"><canvas id="cHeat" aria-label="710宿舍平面与等距模型"></canvas><div id="spaceTip" role="status" hidden></div></div>
+  <div class="space-key">
+    <div class="scale"><span id="scLo">--</span><i class="gr" id="fieldGradient"></i><span id="scHi">--</span></div>
+    <span><i class="test-key"></i>测试区 5 × 3m</span><span>● 低位 0.8m / 高位 1.8m</span><span id="modelDimensions">层高 3.2m</span>
+  </div>
+  <div class="hint" id="heatHint"></div>
+</section>
+
+<section class="panel">
+  <h2>室温 <span id="spanT">近 1 小时 · 实线 DHT1 / 虚线 DHT2</span></h2>
+  <div class="legend" id="legT"></div>
+  <canvas id="cTemp" class="c1"></canvas>
+</section>
+
+<section class="panel">
+  <h2>相对湿度 <span>% · 实线 DHT1 / 虚线 DHT2</span></h2>
+  <canvas id="cRh" class="c2"></canvas>
+</section>
+
+<section class="panel">
+  <h2>PMV 热舒适 <span id="pmvBandSpan">绿带 = |PMV|&lt;0.50 舒适区</span></h2>
+  <canvas id="cPmv" class="c1"></canvas>
+</section>
+
+<section class="panel">
+  <h2>空调运行 <span>橙色 = 开机</span></h2>
+  <canvas id="cAc" class="c2"></canvas>
+</section>
+
+<section class="panel">
+  <h2>手机访问 <span>手机连同一个热点就能打开</span></h2>
+  <div class="phone">
+    <img id="qrImg" alt="手机访问二维码" style="display:none">
+    <div style="flex:1;min-width:200px">
+      <div class="u" id="phoneUrl">读取中…</div>
+      <div class="t" id="phoneTip">手机 Wi-Fi 连到同一个热点，浏览器输入上面的地址即可；界面会自动适配手机屏。</div>
+      <div style="margin-top:9px"><button id="btnCopyUrl" style="font-size:12px;padding:6px 12px">复制地址</button></div>
+    </div>
+  </div>
+</section>
+
+<div class="foot">
+  <div><a href="/api/export.csv?days=1">下载近 1 天 CSV</a> ·
+       <a href="/api/export.csv?days=7">7 天</a> ·
+       <a href="/api/export.csv?days=30">30 天</a></div>
+  <div>数据每 5 秒刷新 · 曲线每 30 秒刷新</div>
+</div>
+
+<div id="toast"></div>
+
+<script>const DEMO_DATA = {"/api/latest": {"server_time": 1795614563, "nodes": [{"id": "node1", "last_seen": 1795614561, "online": true, "ip": "模拟设备", "rssi": -55, "fw": "DEMO", "up": 13944, "ts": 1795614561, "t1": 19.25, "h1": 55.0, "t2": 19.45, "h2": 56.0, "pir": 1, "ac": 0, "act": 19, "fan": 3, "mode": 1, "ta": 19.25, "rh": 55.0, "pmv": -1.81, "ppd": 67.4, "age": 2}, {"id": "node2", "last_seen": 1795614561, "online": true, "ip": "模拟设备", "rssi": -55, "fw": "DEMO", "up": 13944, "ts": 1795614561, "t1": 19.4, "h1": 56.0, "t2": 19.599999999999998, "h2": 57.0, "pir": 1, "ac": 0, "act": 19, "fan": 3, "mode": 1, "ta": 19.4, "rh": 56.0, "pmv": -1.75, "ppd": 64.5, "age": 2}, {"id": "node3", "last_seen": 1795614561, "online": true, "ip": "模拟设备", "rssi": -55, "fw": "DEMO", "up": 13944, "ts": 1795614561, "t1": 19.55, "h1": 57.0, "t2": 19.75, "h2": 58.0, "pir": 1, "ac": 0, "act": 19, "fan": 3, "mode": 1, "ta": 19.55, "rh": 57.0, "pmv": -1.7, "ppd": 61.5, "age": 2}], "summary": {"ta": 19.4, "rh": 56.0, "pmv": -1.75, "verdict": "偏冷", "ac_on": 0, "online": 3, "total": 3, "pir": 3}, "ctrl": "node3", "ir_tx": [{"id": 7, "ts": 1795603909, "node": "node3", "action": "T24", "label": "升温至 24℃", "src": "test", "mode": "A", "band": 0.1, "why": "模式 A · 舒适区 ±0.10 · PMV -1.75 · PMV -1.75 偏冷（超出 ±0.10 舒适区），升 5℃ 到 24℃（空调已关机，先发开机帧）", "frame": "", "irn": 0, "status": "queue"}, {"id": 6, "ts": 1795600616, "node": "node3", "action": "T19", "label": "模拟 · T19", "src": "auto", "mode": "B", "band": null, "why": "展示模拟记录，不曾发射", "frame": "A5 37 29 18 0C C0 20 00 09", "irn": 3, "status": "ok"}, {"id": 5, "ts": 1795600616, "node": "node3", "action": "T19", "label": "模拟 · T19", "src": "auto", "mode": "B", "band": null, "why": "展示模拟记录，不曾发射", "frame": "A5 37 29 18 0C C0 20 00 09", "irn": 3, "status": "ok"}, {"id": 4, "ts": 1795600616, "node": "node3", "action": "ON", "label": "模拟 · ON", "src": "auto", "mode": "B", "band": null, "why": "展示模拟记录，不曾发射", "frame": "A5 37 29 18 0C C0 20 00 09", "irn": 3, "status": "ok"}, {"id": 3, "ts": 1795599715, "node": "node3", "action": "T26", "label": "指定 26℃", "src": "manual", "mode": "A", "band": 0.5, "why": "网页手动点击 · 直接下发，不经过模式判定（当时是模式 A）", "frame": "", "irn": 0, "status": "ok"}, {"id": 2, "ts": 1795598815, "node": "node3", "action": "OFF", "label": "自动关机", "src": "auto", "mode": "A", "band": 0.5, "why": "PMV 0.12 已进入 ±0.50 舒适区（留 0.05 回差），不需要再制冷/制热 → 关机", "frame": "", "irn": 0, "status": "ok"}, {"id": 1, "ts": 1795593415, "node": "node3", "action": "T26", "label": "自动设定 26℃", "src": "auto", "mode": "A", "band": 0.5, "why": "PMV 0.62 偏热（超出 ±0.50 舒适区），降 1℃ 到 26℃", "frame": "", "irn": 0, "status": "ok"}], "mode": {"mode": "B", "auto": true, "info": {"name": "模式 B · 个性化", "desc": "选择遥控学习记录；低于20℃保持5分钟后关机"}, "decision": {"action": "hold", "setpoint": null, "ta": 19.4, "pmv": null, "target": 19.0, "source": "personal-feedback", "phase": "complete", "ready": true, "reason": "本轮已维持5分钟并收到关机回执；点击开始本轮控温可重新开始"}, "pref": {"temp": 19.0, "n": 1, "learned": true, "manual": true, "conf": 0.2, "last": {"ts": 1795600616, "action": "T19"}, "spread": 0}, "model": null, "band": 0.1, "modes": {"A": {"name": "模式 A · PMV", "desc": "按 ISO 7730 的 PMV 调温，舒适区可调（默认 ±0.5）"}, "B": {"name": "模式 B · 个性化", "desc": "选择遥控学习记录；低于20℃保持5分钟后关机"}}, "updated": 1795603911}}, "/api/layout": {"ok": true, "layout": {"version": 2, "room": {"w": 6.1, "h": 4.55, "wall": 0.12, "height": 3.2, "name": "710 宿舍", "note": "测试区 5×3m；附属空间尺寸按图纸比例估算"}, "walls": [{"id": "south", "a": [0, 0], "b": [6.1, 0], "thickness": 0.12}, {"id": "east", "a": [6.1, 0], "b": [6.1, 4.55], "thickness": 0.12}, {"id": "north", "a": [0, 4.55], "b": [6.1, 4.55], "thickness": 0.12}, {"id": "west", "a": [0, 0], "b": [0, 4.55], "thickness": 0.12}, {"id": "balcony", "a": [1.1, 0], "b": [1.1, 4.55], "thickness": 0.12}, {"id": "bath-front", "a": [1.1, 3.0], "b": [4.35, 3.0], "thickness": 0.12}, {"id": "bath-side", "a": [3.2, 3.0], "b": [3.2, 4.55], "thickness": 0.12}, {"id": "entry-side", "a": [4.35, 3.75], "b": [4.35, 4.55], "thickness": 0.12}, {"id": "column", "a": [0, 0.95], "b": [1.1, 0.95], "thickness": 0.12}], "openings": [{"id": "entrance", "type": "door", "wall": "east", "at": 3.05, "w": 0.95, "label": "入口", "hinge": "left", "swing": "in-left", "open": true}, {"id": "bath-door", "type": "door", "wall": "bath-front", "at": 1.25, "w": 0.85, "label": "附属空间门", "hinge": "left", "swing": "in-left", "open": true}, {"id": "balcony-door", "type": "door", "wall": "balcony", "at": 1.2, "w": 0.9, "label": "侧门", "hinge": "left", "swing": "in-right", "open": true}, {"id": "window", "type": "window", "wall": "balcony", "at": 2.17, "w": 0.78, "label": "窗", "sill": 0.9, "top": 2.2}], "fieldRegion": {"x": 1.1, "y": 0, "w": 5.0, "h": 3.0}, "furniture": [], "ac": {"wall": "balcony", "at": 1.5, "height": 2.8, "dir": [1.0, 0.0], "throw": 4.5, "example": false}, "sensors": [{"key": "node3.t1", "id": "node3", "ch": 1, "label": "node3 DHT1", "x": 2.33, "y": 2.27, "z": 0.8, "mount": "stand"}, {"key": "node3.t2", "id": "node3", "ch": 2, "label": "node3 DHT2", "x": 2.33, "y": 2.27, "z": 1.8, "mount": "stand"}, {"key": "node1.t1", "id": "node1", "ch": 1, "label": "node1 DHT1", "x": 3.07, "y": 0.98, "z": 0.8, "mount": "stand"}, {"key": "node1.t2", "id": "node1", "ch": 2, "label": "node1 DHT2", "x": 3.07, "y": 0.98, "z": 1.8, "mount": "stand"}, {"key": "node2.t1", "id": "node2", "ch": 1, "label": "node2 DHT1", "x": 5.3, "y": 1.0, "z": 0.8, "mount": "stand"}, {"key": "node2.t2", "id": "node2", "ch": 2, "label": "node2 DHT2", "x": 5.3, "y": 1.0, "z": 1.8, "mount": "stand"}], "points": [{"key": "node3.t1", "id": "node3", "ch": 1, "label": "node3 DHT1", "x": 2.33, "y": 2.27, "z": 0.8, "mount": "stand"}, {"key": "node3.t2", "id": "node3", "ch": 2, "label": "node3 DHT2", "x": 2.33, "y": 2.27, "z": 1.8, "mount": "stand"}, {"key": "node1.t1", "id": "node1", "ch": 1, "label": "node1 DHT1", "x": 3.07, "y": 0.98, "z": 0.8, "mount": "stand"}, {"key": "node1.t2", "id": "node1", "ch": 2, "label": "node1 DHT2", "x": 3.07, "y": 0.98, "z": 1.8, "mount": "stand"}, {"key": "node2.t1", "id": "node2", "ch": 1, "label": "node2 DHT1", "x": 5.3, "y": 1.0, "z": 0.8, "mount": "stand"}, {"key": "node2.t2", "id": "node2", "ch": 2, "label": "node2 DHT2", "x": 5.3, "y": 1.0, "z": 1.8, "mount": "stand"}], "grid": {"dx": 0.05}, "updated": 0}}, "/api/series": {"hours": 1.0, "bucket": 60, "series": {"node1": [[1795610940, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795611000, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795611060, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795611120, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795611180, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795611240, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795611300, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795611360, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795611420, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795611480, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795611540, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795611600, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795611660, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795611720, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795611780, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795611840, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795611900, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795611960, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795612020, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795612080, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795612140, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795612200, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795612260, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795613700, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795613760, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795613820, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795613880, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795613940, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795614000, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795614060, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795614120, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795614180, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795614240, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795614300, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795614360, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795614420, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795614480, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0], [1795614540, 19.25, 55.0, -1.81, 0, 1.0, 19.0, 19.25, 55.0, 19.45, 56.0]], "node2": [[1795610940, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795611000, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795611060, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795611120, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795611180, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795611240, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795611300, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795611360, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795611420, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795611480, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795611540, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795611600, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795611660, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795611720, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795611780, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795611840, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795611900, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795611960, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795612020, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795612080, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795612140, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795612200, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795612260, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795613700, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795613760, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795613820, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795613880, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795613940, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795614000, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795614060, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795614120, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795614180, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795614240, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795614300, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795614360, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795614420, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795614480, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0], [1795614540, 19.4, 56.0, -1.75, 0, 1.0, 19.0, 19.4, 56.0, 19.6, 57.0]], "node3": [[1795610940, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795611000, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795611060, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795611120, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795611180, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795611240, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795611300, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795611360, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795611420, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795611480, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795611540, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795611600, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795611660, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795611720, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795611780, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795611840, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795611900, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795611960, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795612020, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795612080, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795612140, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795612200, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795612260, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795613700, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795613760, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795613820, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795613880, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795613940, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795614000, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795614060, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795614120, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795614180, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795614240, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795614300, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795614360, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795614420, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795614480, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0], [1795614540, 19.55, 57.0, -1.7, 0, 1.0, 19.0, 19.55, 57.0, 19.75, 58.0]]}, "now": 1795614563}, "/api/personal": {"ok": true, "config": {"stop_below": 20.0, "hold_seconds": 300, "refresh_seconds": 60, "max_transmissions": 3, "description": "低于20℃连续保持5分钟后关机"}, "cycle": {"phase": "complete", "below_since": 1795614261, "transmissions": 3, "last_observation": 1795614561}, "records": [{"id": 1, "node": "node3", "ts": 1795600616, "pin": "D3", "hex": "A5 37 29 18 0C C0 20 00 09", "b": [165, 55, 41, 24, 12, 192, 32, 0, 9], "selected": true, "valid": true, "eligible": true, "temp": 19, "command": 7, "power": true, "ac_mode": 1, "fan": 3, "reason": "可选为制冷偏好", "label": "调低温度 · 19℃ · 制冷"}], "preference": {"temp": 19.0, "n": 1, "learned": true, "manual": true, "conf": 0.2, "last": {"ts": 1795600616, "action": "T19"}, "spread": 0}, "remaining_seconds": 0, "receiver": {}, "target_source": "手动指定"}, "/api/forecast": {"ok": true, "status": "not_ready", "a_proxy_score": null, "a_proxy_state_15min": null, "b_pmv_15min": null, "b_warm_candidate": null, "channels": {}, "model_version": "sleepsense_notebook_v2_20261122", "horizon_minutes": 15, "weather_source": null, "weather_error": null, "reason": "请选择历史模型的A、B测点；不会把演示历史当作实时输入"}, "/api/mode": {"ok": true, "mode": "B", "auto": true, "info": {"name": "模式 B · 个性化", "desc": "选择遥控学习记录；低于20℃保持5分钟后关机"}, "decision": {"action": "hold", "setpoint": null, "ta": 19.4, "pmv": null, "target": 19.0, "source": "personal-feedback", "phase": "complete", "ready": true, "reason": "本轮已维持5分钟并收到关机回执；点击开始本轮控温可重新开始"}, "pref": {"temp": 19.0, "n": 1, "learned": true, "manual": true, "conf": 0.2, "last": {"ts": 1795600616, "action": "T19"}, "spread": 0}, "model": null, "band": 0.1, "modes": {"A": {"name": "模式 A · PMV", "desc": "按 ISO 7730 的 PMV 调温，舒适区可调（默认 ±0.5）"}, "B": {"name": "模式 B · 个性化", "desc": "选择遥控学习记录；低于20℃保持5分钟后关机"}}, "updated": 1795603911}, "/api/ir": {"ok": true, "n": 1, "items": [{"id": 1, "node": "node3", "ts": 1795600616, "pin": "D3", "hex": "A5 37 29 18 0C C0 20 00 09", "b": [165, 55, 41, 24, 12, 192, 32, 0, 9], "crc": true, "label": "模拟遥控 · 19℃"}]}};
+const demoStart = Date.now();
+let cycleStart = Date.now();
+const clone = value => JSON.parse(JSON.stringify(value));
+window.fetch = async function(input, options={}) {
+  const path = new URL(String(input), location.href).pathname;
+  const body = options.body ? JSON.parse(options.body) : {};
+  let result = clone(DEMO_DATA[path] || {ok:true});
+  const elapsed = (Date.now()-cycleStart)/1000;
+  const temperature = 21.3 - Math.min(elapsed/90,1)*1.9;
+  const phase = elapsed<90?'cooling':elapsed<120?'holding':'complete';
+  const cycle = {phase,transmissions:Math.min(3,Math.floor(elapsed/20)+1),below_since:elapsed>=90?Math.floor(Date.now()/1000)-(elapsed-90)*10:null};
+  if(path==='/api/layout' && body.layout)DEMO_DATA[path].layout=body.layout;
+  if(path==='/api/mode' && options.method==='POST')Object.assign(DEMO_DATA[path],body);
+  if(path==='/api/personal' && options.method==='POST') {
+    if(body.action==='start'){cycleStart=Date.now();DEMO_DATA['/api/mode'].auto=true;}
+    if(body.action==='manual')DEMO_DATA[path].preference.temp=body.temp;
+    if(body.action==='select') {
+      DEMO_DATA[path].records.forEach(r=>r.selected=body.ids.includes(r.id));
+      const chosen=DEMO_DATA[path].records.filter(r=>r.selected&&r.eligible);
+      if(chosen.length)DEMO_DATA[path].preference.temp=Math.round(chosen.reduce((s,r)=>s+r.temp,0)/chosen.length);
+    }
+  }
+  if(path==='/api/latest') {
+    result.server_time=Math.floor(Date.now()/1000);
+    result.nodes.forEach((n,i)=>Object.assign(n,{online:true,age:1,ts:result.server_time,t1:temperature+(i-1)*.15,t2:temperature+.2,h1:55+i,h2:56+i,ta:temperature+(i-1)*.15,pmv:(temperature-24.5)*.3,ac:phase==='complete'?0:1}));
+    Object.assign(result.summary,{online:3,total:3,ta:temperature,rh:56,pmv:(temperature-24.5)*.3});
+    result.mode=clone(DEMO_DATA['/api/mode']);
+    result.mode.decision={action:phase==='complete'?'hold':temperature<20?'hold':'cool',setpoint:19,ta:temperature,target:19,reason:phase==='complete'?'模拟维持完成，已展示关机':temperature<20?'模拟室温已低于20℃，加速演示5分钟维持过程':'模拟制冷中，目标19℃',source:'演示模拟'};
+  }
+  if(path==='/api/personal') {
+    result=clone(DEMO_DATA[path]);result.cycle=cycle;result.remaining_seconds=elapsed<90?300:Math.max(0,300-(elapsed-90)*10);
+    result.receiver={total:result.records.length,edges:1256,pin:'D3',ts:Math.floor(Date.now()/1000)};
+  }
+  if(path==='/api/cmd'||path==='/api/ir_test')result={ok:true,id:100,cmd_id:100,action:body.action||'T19'};
+  if(path==='/api/net')result={urls:[location.origin],ips:[]};
+  if(path==='/api/qr.svg')return new Response('<svg xmlns="http://www.w3.org/2000/svg"/>',{headers:{'Content-Type':'image/svg+xml'}});
+  return new Response(JSON.stringify(result),{status:200,headers:{'Content-Type':'application/json'}});
+};
+</script><script>
+"use strict";
+
+/* 用 file:// 双击打开时，页面取不到 /api/*（没有服务器、跨源也不允许）。
+   先探一下本地服务器：活着就直接跳到真正的页面，死了才留在这里给准确提示，
+   而不是让用户对着"连不上服务器"猜。 */
+if(location.protocol === 'file:'){
+  const warn = () => {
+    document.body.insertAdjacentHTML('afterbegin',
+      '<div style="background:#3a2418;border:1px solid #7a4a22;color:#ffcf9b;' +
+      'padding:12px 14px;border-radius:12px;margin-bottom:14px;font-size:13px;line-height:1.7">' +
+      '<b>这个页面是用 file:// 打开的，看不到数据。</b><br>' +
+      '它需要旁边那个 <code>acserver.py</code> 在跑。正确做法：<br>' +
+      '1) 双击 <code>server\\启动服务器.bat</code>（黑窗口别关）<br>' +
+      '2) 浏览器地址栏输入 <code>http://localhost:8000</code><br>' +
+      '3) 手机同理，但要把 localhost 换成窗口里打印的那个 IP</div>');
+    $('conn').innerHTML = '<span class="dot off"></span>未连接服务器';
+    $('nodes').innerHTML = '<div class="card">请按上方红框里的三步操作。</div>';
+  };
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), 1200);
+  fetch('http://localhost:8000/api/info', {cache:'no-store', signal:ac.signal})
+    .then(r => { clearTimeout(timer); if(r.ok) location.replace('http://localhost:8000/'); else warn(); })
+    .catch(() => { clearTimeout(timer); warn(); });
+}
+
+const COLORS = ['#5aa9ff','#34d399','#fbbf24','#f472b6','#a78bfa','#f87171'];
+/* 直接显示板号：node1 / node2 / node3（原来的 门口/书桌/床头 已取消） */
+const NODENAME = {};
+const S = {latest:null, series:null, lastSeries:0, mode:null, ctrlSig:'', band:0.5};
+
+const $ = id => document.getElementById(id);
+const fmt = (v,d=1) => (v===null||v===undefined||isNaN(v)) ? '--' : Number(v).toFixed(d);
+/* 舒适区半宽：由服务器 settings.pmv_band 决定，网页上可拖动调整 */
+const bandOf = () => (S.band===null||S.band===undefined||isNaN(S.band)) ? 0.5 : Number(S.band);
+
+function toast(msg){
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._tm); t._tm = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+function hhmm(ts){
+  const d = new Date((ts+28800)*1000);
+  return String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0');
+}
+function nameOf(id){ return NODENAME[id] || id; }
+
+/* ------------------------- 画布基础 ------------------------- */
+function prep(cv){
+  const dpr = window.devicePixelRatio || 1;
+  const w = cv.clientWidth, h = cv.clientHeight;
+  if(!w || !h) return null;
+  if(cv.width !== Math.round(w*dpr) || cv.height !== Math.round(h*dpr)){
+    cv.width = Math.round(w*dpr); cv.height = Math.round(h*dpr);
+  }
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,w,h);
+  return {ctx, w, h};
+}
+
+function drawChart(cv, lines, opt){
+  const p = prep(cv); if(!p) return;
+  const {ctx,w,h} = p;
+  const L=40, R=10, T=12, B=22;
+  const iw = w-L-R, ih = h-T-B;
+
+  let vals=[], tmin=Infinity, tmax=-Infinity, vmin=Infinity, vmax=-Infinity;
+  lines.forEach(l => l.pts.forEach(pt => {
+    const [ts,v] = pt;
+    if(v===null||v===undefined) return;
+    if(ts<tmin)tmin=ts; if(ts>tmax)tmax=ts;
+    if(v<vmin)vmin=v; if(v>vmax)vmax=v; vals.push(v);
+  }));
+  if(!isFinite(tmin)){
+    ctx.fillStyle='#5b6b80'; ctx.font='12px system-ui'; ctx.textAlign='center';
+    ctx.fillText('还没有数据，板子连上后几分钟就会出现', w/2, h/2);
+    return;
+  }
+  if(opt && opt.min!==undefined) vmin = opt.min;
+  if(opt && opt.max!==undefined) vmax = opt.max;
+  if(vmax-vmin < (opt&&opt.pad||1)){ const m=(vmax+vmin)/2; vmin=m-(opt&&opt.pad||1)/2; vmax=m+(opt&&opt.pad||1)/2; }
+  const padv = (vmax-vmin)*0.08; vmin-=padv; vmax+=padv;
+  if(opt && opt.clamp){
+    vmin = Math.max(opt.clamp[0], vmin);
+    vmax = Math.min(opt.clamp[1], vmax);
+  }
+  if(tmax===tmin) tmax = tmin+60;
+
+  const X = ts => L + (ts-tmin)/(tmax-tmin)*iw;
+  const Y = v  => T + ih - (v-vmin)/(vmax-vmin)*ih;
+
+  /* 舒适区 / 参考带 */
+  if(opt && opt.band){
+    const [b0,b1] = opt.band;
+    ctx.fillStyle='rgba(49,196,141,.14)';
+    ctx.fillRect(L, Y(b1), iw, Math.max(1, Y(b0)-Y(b1)));
+    ctx.strokeStyle='rgba(49,196,141,.3)'; ctx.lineWidth=1;
+    [b0,b1].forEach(b=>{ ctx.beginPath(); ctx.moveTo(L,Y(b)); ctx.lineTo(L+iw,Y(b)); ctx.stroke(); });
+  }
+
+  /* 网格 + Y 轴 */
+  ctx.font='10px system-ui'; ctx.textAlign='right'; ctx.textBaseline='middle';
+  const ticks = opt && opt.ticks || 4;
+  for(let i=0;i<=ticks;i++){
+    const v = vmin + (vmax-vmin)*i/ticks;
+    const y = Y(v);
+    ctx.strokeStyle='rgba(255,255,255,.055)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(L,y); ctx.lineTo(L+iw,y); ctx.stroke();
+    ctx.fillStyle='#71839a';
+    ctx.fillText((opt&&opt.fmt?opt.fmt(v):v.toFixed(1)), L-6, y);
+  }
+  /* X 轴时间 */
+  ctx.textAlign='center'; ctx.textBaseline='top';
+  for(let i=0;i<=4;i++){
+    const ts = tmin + (tmax-tmin)*i/4;
+    ctx.fillStyle='#71839a';
+    ctx.fillText(hhmm(ts), X(ts), T+ih+6);
+  }
+
+  /* 线 */
+  lines.forEach((l,li)=>{
+    ctx.strokeStyle = l.color || COLORS[li%COLORS.length];
+    ctx.lineWidth = l.width || 1.9;
+    ctx.lineJoin='round'; ctx.lineCap='round';
+    if(l.dash) ctx.setLineDash([4,4]); else ctx.setLineDash([]);
+    let started=false;
+    ctx.beginPath();
+    l.pts.forEach(([ts,v])=>{
+      if(v===null||v===undefined){ started=false; return; }
+      const x=X(ts), y=Y(v);
+      if(!started){ ctx.moveTo(x,y); started=true; } else ctx.lineTo(x,y);
+    });
+    ctx.stroke(); ctx.setLineDash([]);
+
+    /* 末端小圆点 */
+    const last = [...l.pts].reverse().find(pt=>pt[1]!==null&&pt[1]!==undefined);
+    if(last){
+      ctx.fillStyle = l.color || COLORS[li%COLORS.length];
+      ctx.beginPath(); ctx.arc(X(last[0]), Y(last[1]), 3, 0, 6.284); ctx.fill();
+    }
+  });
+}
+
+/* 空调开关条带 */
+function drawBands(cv, series){
+  const p = prep(cv); if(!p) return;
+  const {ctx,w,h} = p;
+  const L=40,R=10,T=10,B=20, iw=w-L-R, ih=h-T-B;
+  let tmin=Infinity,tmax=-Infinity;
+  Object.values(series||{}).forEach(arr=>arr.forEach(r=>{ if(r[0]<tmin)tmin=r[0]; if(r[0]>tmax)tmax=r[0]; }));
+  if(!isFinite(tmin)){
+    ctx.fillStyle='#5b6b80'; ctx.font='12px system-ui'; ctx.textAlign='center';
+    ctx.fillText('还没有数据', w/2, h/2); return;
+  }
+  if(tmax===tmin) tmax=tmin+60;
+  const X = ts => L + (ts-tmin)/(tmax-tmin)*iw;
+
+  ctx.fillStyle='rgba(255,255,255,.04)'; ctx.fillRect(L,T,iw,ih);
+  const ids = Object.keys(series);
+  const rowH = ih/Math.max(1,ids.length);
+  const bw = Math.max(2, iw/400);
+
+  ids.forEach((id,ri)=>{
+    const y = T + ri*rowH + rowH*0.28;
+    const bh = rowH*0.44;
+    series[id].forEach(r=>{
+      if((r[4]||0) > 0.4){
+        ctx.fillStyle = 'rgba(249,115,22,.85)';
+        ctx.fillRect(X(r[0]), y, bw, bh);
+      } else if((r[5]||0) > 0.5){
+        ctx.fillStyle = 'rgba(90,169,255,.22)';
+        ctx.fillRect(X(r[0]), y+bh*0.3, bw, bh*0.4);
+      }
+    });
+    ctx.fillStyle='#71839a'; ctx.font='10px system-ui';
+    ctx.textAlign='right'; ctx.textBaseline='middle';
+    ctx.fillText(nameOf(id), L-6, y+bh/2);
+  });
+
+  ctx.textAlign='center'; ctx.textBaseline='top';
+  for(let i=0;i<=4;i++){
+    const ts=tmin+(tmax-tmin)*i/4;
+    ctx.fillStyle='#71839a'; ctx.fillText(hhmm(ts), X(ts), T+ih+4);
+  }
+}
+
+/* ------------------------- 渲染 ------------------------- */
+function renderKPI(d){
+  const s = d.summary || {};
+  const t = $('kTa'), r = $('kRh'), p = $('kPmv'), a = $('kAc');
+  t.innerHTML = (s.ta===null||s.ta===undefined?'--':fmt(s.ta,1)) + '<span class="u">℃</span>';
+  r.innerHTML = (s.rh===null||s.rh===undefined?'--':fmt(s.rh,0)) + '<span class="u">%</span>';
+  p.textContent = s.pmv===null||s.pmv===undefined ? '--' : fmt(s.pmv,2);
+  const b = bandOf();
+  p.style.color = s.pmv===null||s.pmv===undefined ? '' : (s.pmv>b?'var(--hot)':(s.pmv<-b?'var(--cool)':'var(--ok)'));
+
+  const onN = d.nodes.filter(n=>n.ac).length;
+  a.textContent = onN ? '运行 ' + onN : '全关';
+  a.style.color = onN ? 'var(--ac)' : '';
+
+  const nSens = d.nodes.reduce((a,n)=>
+      a + [n.t1,n.t2].filter(v=>v!==null&&v!==undefined).length, 0);
+  $('kTaS').textContent = (s.verdict ? ('体感 ' + s.verdict + ' · ') : '') + nSens + ' 路 DHT22';
+  const nRh = d.nodes.reduce((a,n)=>
+      a + [n.h1,n.h2].filter(v=>v!==null&&v!==undefined).length, 0);
+  $('kRhS').textContent = nRh + ' 路 DHT22 平均';
+
+  /* 有人 / 无人：只看主控板上的人体雷达，且只在顶部这一行显示 */
+  const m = mainNode(d);
+  const occ = !!(m && m.online && m.pir);       // 离线时不给过期结论
+  $('kPir').textContent = (m && m.online) ? (occ ? '有人' : '无人') : '--';
+  $('kPir').style.color = (m && m.online) ? (occ ? 'var(--ok)' : '#8b9bb0') : '';
+  $('kPirS').textContent = m
+      ? ('主控板 ' + nameOf(m.id) + ' 雷达' + (m.online ? '' : ' · 离线'))
+      : '&nbsp;';
+  $('kPmvS').textContent = (s.pmv===null||s.pmv===undefined) ? '\u00a0'
+      : (s.pmv>b?'偏热':(s.pmv<-b?'偏冷':'舒适'));
+  $('kAcS').textContent = (s.online||0) + '/' + (s.total||0) + ' 节点在线';
+}
+
+function renderNodes(d){
+  const box = $('nodes'); const html = [];
+  const nodes = d.nodes.slice().sort((x,y)=>x.id.localeCompare(y.id));
+  nodes.forEach((n,i)=>{
+    // 有人/无人只在页面顶部那一行显示，卡片里只保留离线标记
+    const tag = n.online ? '' : '<span class="tag offline">离线</span>';
+    const pv = n.pmv;
+    const b = bandOf();
+    const pcol = pv===null||pv===undefined ? '#71839a' : (pv>b?'var(--hot)':(pv<-b?'var(--cool)':'var(--ok)'));
+    const pct = pv===null||pv===undefined ? 50 : Math.max(0,Math.min(100,(pv+3)/6*100));
+    const cell = (v,dd) => v===null||v===undefined
+        ? '<b class="miss">--</b>' : `<b>${fmt(v,dd)}</b>`;
+    html.push(`
+      <div class="card">
+        <div class="top">
+          <div class="nm" style="color:${COLORS[i%COLORS.length]}">${nameOf(n.id)}</div>
+          <div>${tag}</div>
+        </div>
+        <div class="th">
+          <span class="h"></span><span class="h" style="text-align:right">温度 ℃</span><span class="h" style="text-align:right">湿度 %</span>
+          <span class="k">DHT1</span>${cell(n.t1,1)}${cell(n.h1,0)}
+          <span class="k">DHT2</span>${cell(n.t2,1)}${cell(n.h2,0)}
+        </div>
+        <div class="row"><span>PMV（DHT1）</span><b style="color:${pcol}">${pv===null||pv===undefined?'--':fmt(pv,2)}</b></div>
+        <div class="bar"><i style="width:${pct}%;background:${pcol}"></i></div>
+        <div class="row"><span>空调</span><b style="color:${n.ac?'var(--ac)':'#8b9bb0'}">
+          ${n.ac ? ('开 '+(n.act||'--')+'℃') : '关'}</b></div>
+        <div class="row"><span>信号</span><b>${n.rssi?n.rssi+' dBm':'--'}</b></div>
+      </div>`);
+  });
+  if(!nodes.length) html.push('<div class="card">还没有任何板子上报。检查：板子是否连上 WiFi（串口打 NET）、SERVER 地址是否指向这台电脑。</div>');
+  box.innerHTML = html.join('');
+}
+
+function mainNode(d){
+  /* 主控板：服务器 settings.ctrl_node（默认 node3），没配就退回 node3 / 最后一块 */
+  const cid = d.ctrl || 'node3';
+  return d.nodes.find(n=>n.id===cid) || d.nodes.find(n=>n.id==='node3') || d.nodes[d.nodes.length-1] || null;
+}
+
+function renderCtrl(d){
+  const box = $('ctrl');
+  const m = mainNode(d);
+  if(!m){ box.innerHTML = '<div class="cbox">还没有任何板子上报，无法控制。</div>'; return; }
+  const st = !m.online ? '离线'
+           : (m.ac ? ('开机 · ' + (m.act || '--') + '℃') : '关机');
+  box.innerHTML = `
+    <div class="cbox">
+      <div class="t">${nameOf(m.id)} · 主控板
+        <span style="color:#5b6b80">${m.ip || ''}</span>
+        <span style="color:${m.online?'#8b9bb0':'var(--bad)'};margin-left:8px">${st}</span></div>
+      <div class="btns">
+        <button class="on"  data-cmd="ON"  data-node="${m.id}">开机</button>
+        <button class="off" data-cmd="OFF" data-node="${m.id}">关机</button>
+        <button class="t"   data-cmd="T-"  data-node="${m.id}">−1℃</button>
+        <button class="t"   data-cmd="T+"  data-node="${m.id}">+1℃</button>
+        <button class="t"   data-cmd="T26" data-node="${m.id}">26℃</button>
+      </div>
+      <div class="hint">指令只发给这一块板子；红外接收与发射也只在它身上，另外两块没有红外模块。</div>
+    </div>`;
+}
+
+/* ------------------------- 红外发射记录 ------------------------- */
+const SRC_LABEL = {auto:'自动', manual:'手动', test:'测试'};
+const SRC_CLASS = {auto:'auto', manual:'manual', test:'test'};
+function hhmmss(ts){
+  if(!ts) return '--:--:--';
+  const d = new Date(ts*1000), p = n => String(n).padStart(2,'0');
+  return p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
+}
+function escHtml(s){
+  return String(s).replace(/[&<>"]/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+function renderIrTx(d){
+  const items = d.ir_tx || [];
+  const box = $('irTx');
+  if(!items.length){
+    box.innerHTML = '<div class="irempty">还没有发射记录。点上面「测试红外发射」，'
+                  + '或手动开机 / 调温，每一帧都会记在这里。</div>';
+    return;
+  }
+  $('irSpan').textContent = `最近 ${items.length} 条 · 自动 / 手动 / 舒适区测试`;
+  box.innerHTML = items.map(it=>{
+    const src = SRC_LABEL[it.src] || '手动';
+    let bd = '';
+    if(it.mode === 'A' && it.band !== null && it.band !== undefined)
+      bd = `模式 A · ±${Number(it.band).toFixed(2)}`;
+    else if(it.mode === 'B') bd = '模式 B · 个性化';
+    else if(it.mode) bd = '模式 ' + it.mode;
+    const st = it.status === 'ok'   ? (it.frame?'<span class="st ok">✓ 已发射帧</span>':'<span class="st ok">✓ 板端已回执</span>')
+             : it.status === 'wait' ? '<span class="st wait">已下发 · 等回执</span>'
+             : '<span class="st queue">排队中</span>';
+    const fr = it.frame
+      ? `　帧 <span class="fr">${escHtml(it.frame)}</span>` + (it.irn ? ` ×${it.irn}` : '')
+      : '　旧固件未回传帧';
+    const why = (it.why || '').trim();
+    return `<div class="irrow">
+      <span class="tm">${hhmmss(it.ts)}</span>
+      <span class="irb ${SRC_CLASS[it.src] || 'manual'}">${src}</span>
+      <span class="sig">${escHtml(it.label)}${bd ? `<span class="bd">${bd}</span>` : ''}</span>
+      ${st}
+      ${(why || fr) ? `<span class="why">${escHtml(why)}${fr}</span>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderCharts(){
+  const s = S.series;
+  if(!s || !s.series) return;
+  const ids = Object.keys(s.series).sort();
+  /* series 每一行：[时间, 均值温度, 均值湿度, PMV, 空调, 有人, 设定,
+                     t1, h1, t2, h2]（后 4 位是两路 DHT22 的原始值） */
+  const tLines = [], rhLines = [], leg = [];
+  ids.forEach((id,i)=>{
+    const col  = COLORS[i%COLORS.length];
+    const rows = s.series[id];
+    tLines.push({color:col, width:2.0, pts:rows.map(r=>[r[0], r[7]])});
+    tLines.push({color:col, width:1.4, dash:true, pts:rows.map(r=>[r[0], r[9]])});
+    rhLines.push({color:col, width:2.0, pts:rows.map(r=>[r[0], r[8]])});
+    rhLines.push({color:col, width:1.4, dash:true, pts:rows.map(r=>[r[0], r[10]])});
+    leg.push(`<span><i style="background:${col}"></i>${nameOf(id)} DHT1</span>`);
+    leg.push(`<span><i class="dash" style="border-top-color:${col}"></i>${nameOf(id)} DHT2</span>`);
+  });
+  $('legT').innerHTML = leg.join('');
+  drawChart($('cTemp'), tLines, {fmt:v=>v.toFixed(1), ticks:4, pad:1});
+
+  /* 湿度 */
+  drawChart($('cRh'), rhLines, {fmt:v=>v.toFixed(0), ticks:3, min:20, max:95, clamp:[0,100]});
+
+  /* PMV */
+  const b = bandOf();
+  $('pmvBandSpan').textContent = '绿带 = |PMV| < ' + b.toFixed(2) + ' 舒适区';
+  drawChart($('cPmv'), ids.map((id,i)=>({
+    color: COLORS[i%COLORS.length],
+    pts: s.series[id].map(r=>[r[0], r[3]])
+  })), {fmt:v=>v.toFixed(1), ticks:4, min:-3, max:3, band:[-b,b]});
+
+  /* 空调 */
+  drawBands($('cAc'), s.series);
+}
+
+/* ------------------------- 总控：模式 A / B ------------------------- */
+const MODE_FALLBACK = {
+  A:{name:'模式 A · PMV',      desc:'按 ISO 7730 的 PMV 调温，|PMV| < 0.5 算舒适'},
+  B:{name:'模式 B · 个性化',   desc:'学你手动按过的设定温度，按你的偏好维持'}
+};
+const ACT_LABEL = {cool:'降温', warm:'升温', hold:'维持', off:'关机'};
+const ACT_COLOR = {cool:'var(--cool)', warm:'var(--hot)', hold:'var(--ok)', off:'#7fb2ff'};
+
+function renderMode(m){
+  if(!m) return;
+  S.mode = m;
+
+  /* 舒适区滑块：只有模式 A（PMV）用得到；模式 B 走个性化规则 */
+  const band = (m.band===undefined||m.band===null) ? 0.5 : Number(m.band);
+  $('bandBox').style.display = (m.mode==='A') ? '' : 'none';
+  $('personalPanel').hidden=m.mode!=='B';
+  if(m.mode==='B')loadPersonal();
+  $('bandVal').textContent = band.toFixed(2);
+  if(document.activeElement !== $('bandRange')) $('bandRange').value = band;
+  const sum = (S.latest && S.latest.summary) || {};
+  const pv = sum.pmv;
+  const dNow = m.decision || {};
+  $('bandNow').textContent = (pv===null||pv===undefined) ? '当前 PMV --'
+      : ('当前 PMV ' + Number(pv).toFixed(2) +
+         (Math.abs(pv)<=band
+            ? (dNow.ac_on ? ' · 在舒适区内 · 空调将自动关机' : ' · 在舒适区内')
+            : ' · 超出舒适区'));
+
+  const modes = m.modes || MODE_FALLBACK;  /* 只在模式真的变了才重建按钮，否则每 5 秒重建会打断点击 */
+  if(S.modeSig !== m.mode){
+    S.modeSig = m.mode;
+    $('modes').innerHTML = ['A','B'].map(k=>{
+      const it = modes[k] || MODE_FALLBACK[k];
+      return `<button class="modebtn ${m.mode===k?'on':''}" data-mode="${k}">
+        <div class="mt">${it.name}</div><div class="md">${it.desc}</div></button>`;
+    }).join('');
+  }
+
+  const d = m.decision || {};
+  const col = ACT_COLOR[d.action] || '#71839a';
+  $('decide').innerHTML =
+    `<div class="act" style="color:${col}">${d.action?ACT_LABEL[d.action]:'--'}</div>` +
+    `<div class="sp">${d.action==='off' ? '停机'
+        : ((d.setpoint===undefined||d.setpoint===null)?'':d.setpoint+' ℃')}</div>` +
+    `<div class="rs">${d.reason || '等待数据…'}</div>` +
+    `<div class="src">${d.source || ''}</div>`;
+
+  $('autoRun').checked = !!m.auto;
+  $('shadowPill').textContent = m.auto ? '自动下发已开启' : '影子模式 · 只给建议';
+  $('shadowPill').style.color = m.auto ? '#7ef0c0' : '#a9b8ca';
+
+  const p = m.pref || {};
+  $('prefPill').innerHTML = `偏好 <b>${(p.temp===undefined)?'--':Number(p.temp).toFixed(1)+' ℃'}</b>`
+      + (p.manual ? ' · 手动指定' : p.learned ? ` · 已选 ${p.n} 条遥控记录` : ' · 尚未选择');
+  const md = m.model;
+  $('modelPill').innerHTML = (md && md.pmv!==null && md.pmv!==undefined)
+      ? `模型 PMV <b>${Number(md.pmv).toFixed(2)}</b> · ${Math.round(md.age)}s 前`
+      : '历史预测见个性化面板';
+
+  $('modeNote').textContent = m.mode==='A'
+    ? '模式 A：PMV 由 ISO 7730 直接算，不依赖训练数据。舒适区当前 ±' + band.toFixed(2) +
+      '，可在上面拖动调整；超出舒适区就按超出量折算调温（至少 1℃），' +
+      '回到舒适区内且空调还开着则自动关机（留 0.05 回差防止来回开关）。' +
+      '开启"自动执行"后每 10 分钟复查一次；期间你改了阈值或模式，会立即重新判定，不用等满 10 分钟。'
+    : '模式 B：采用你选择的遥控偏好或手动设定，按新鲜测温反馈制冷；低于20℃连续保持5分钟后关机。本轮结束后保持关机，点击开始可重启一轮。';
+}
+
+async function setMode(patch){
+  try{
+    const r = await fetch('/api/mode', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(patch)
+    });
+    const j = await r.json();
+    if(j.ok){ renderMode(j); toast('已切换'); }
+    else toast('失败：'+(j.error||''));
+  }catch(e){ toast('发送失败，检查服务器'); }
+}
+
+let learningDraft=null, personalBusy=false, personalLoading=false, forecastChoicesReady=false;
+async function personalAction(body){if(personalBusy)return;personalBusy=true;try{const r=await fetch('/api/personal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),j=await r.json();if(!r.ok||!j.ok)throw Error(j.error||'保存失败');learningDraft=null;renderPersonal(j);await tick();toast(body.action==='start'?'本轮控温已启动':'偏好已保存');}catch(e){toast(e.message);}finally{personalBusy=false;}}
+function renderPersonal(j){const p=j.preference||{},cycle=j.cycle||{},d=S.mode?.decision||{},running=!!S.mode?.auto;const seconds=clamp(Number(j.remaining_seconds)||0,0,300);$('personalTarget').textContent=p.learned?Number(p.temp).toFixed(0)+' ℃':'待选择';$('personalSource').textContent=`${j.target_source} · ${p.n||0} 条有效学习样本`;$('personalTemp').textContent=d.ta===null||d.ta===undefined?'—':Number(d.ta).toFixed(2)+' ℃';$('personalCountdown').textContent=String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');
+  const phase=cycle.phase||'ready',names={ready:'等待开始',cooling:'反馈制冷中',holding:'低温维持中',paused:'采集暂停',stopping:'等待关机回执',complete:'本轮已结束'};$('personalPhase').textContent=running?(names[phase]||'等待开始'):'自动下发已暂停';$('personalSendCount').textContent=`已下发 ${cycle.transmissions||0} / 3 轮`;$('personalProgress').value=cycle.below_since?300-seconds:phase==='complete'?300:0;$('personalReason').textContent=d.reason||'等待选择偏好';document.querySelectorAll('[data-phase]').forEach(e=>e.classList.toggle('active',running&&(e.dataset.phase===phase||(phase==='stopping'&&e.dataset.phase==='complete'))));
+  const rx=j.receiver||{};const age=rx.ts?Math.max(0,Math.round(Date.now()/1000-rx.ts)):null;$('receiverStatus').textContent=`接收端 node3 · ${rx.pin||'D3'} · 累计 ${rx.total||0} 条${rx.edges===undefined||rx.edges===null?' · 旧固件暂无脉冲诊断':` · ${rx.edges} 次边沿 / ${rx.rejected||0} 次未解码`}${age===null?' · 等待采集':` · ${age} 秒前更新`}`;
+  const records=j.records||[];if(learningDraft===null)learningDraft=new Set(records.filter(r=>r.selected).map(r=>r.id));$('learningCount').textContent=`近 7 天 · ${records.length} 条`;
+  $('learningRecords').innerHTML=records.length?records.map(r=>`<label class="learning-row ${r.eligible?'':'invalid'}"><input type="checkbox" data-learn-id="${r.id}" ${r.eligible?'':'disabled'} ${learningDraft.has(r.id)?'checked':''}><span>${escHtml(r.label||r.reason)}<span class="record-meta">${new Date(r.ts*1000).toLocaleString('zh-CN',{hour12:false})} · ${escHtml(r.pin)} · ${r.valid?'校验通过':'校验失败'}</span><code>${escHtml(r.hex)}</code><span class="hint">${escHtml(r.reason)}</span></span></label>`).join(''):'<div class="learning-empty">还没有收到可查看的遥控帧。<br>遥控器对准 node3 的 D3 接收头按下调温键，记录会自动出现在这里。若计数一直为 0，需要刷入修复海尔接收解码的新固件。也可先手动指定 19℃演示偏好控制。</div>';
+  $('adoptRecords').disabled=!records.some(r=>r.eligible);$('startPersonal').disabled=!p.learned||p.temp>=20;}
+function renderForecast(j){$('forecastState').textContent=j.status==='ok'?'预测已就绪':'未就绪';$('forecastProxy').textContent=j.status==='ok'?Number(j.a_proxy_score).toFixed(3):'—';$('forecastPmv').textContent=j.status==='ok'?Number(j.b_pmv_15min).toFixed(3):'—';let reason=j.reason||'';if(j.status!=='ok'&&/[A-Za-z_]+:/.test(reason))reason='实时输入不足或存在缺测：需启用后连续45分钟的有效测温，以及各时刻可用的室外天气。';$('forecastReason').textContent=reason+(j.warnings?.length?' 当前输入超出训练范围，预测需谨慎解释。':'');$('forecastWeather').textContent=(j.weather_source||'室外天气：等待缓存')+(j.weather_error?'；天气更新失败，缓存超时后模型将显示未就绪。':'');
+  if(!forecastChoicesReady){for(const id of ['forecastA','forecastB']){const s=$(id);s.replaceChildren();const first=document.createElement('option');first.value='';first.textContent='请选择原始对应测点';s.appendChild(first);for(const node of ['node1','node2','node3'])for(const ch of [1,2]){const o=document.createElement('option');o.value=`${node}.t${ch}`;o.textContent=`${node} DHT${ch} · ${ch===1?'0.8':'1.8'}m`;s.appendChild(o);}}$('forecastA').value=j.channels?.a||'';$('forecastB').value=j.channels?.b||'';forecastChoicesReady=true;}}
+async function loadPersonal(){if(personalLoading||S.mode?.mode!=='B')return;personalLoading=true;try{const results=await Promise.allSettled([fetch('/api/personal',{cache:'no-store'}).then(r=>r.json()),fetch('/api/forecast',{cache:'no-store'}).then(r=>r.json())]);if(results[0].status==='fulfilled'&&results[0].value.ok)renderPersonal(results[0].value);if(results[1].status==='fulfilled'&&results[1].value.ok)renderForecast(results[1].value);}catch(e){$('receiverStatus').textContent='学习记录读取失败，请稍后重试';}finally{personalLoading=false;}}
+$('learningRecords').addEventListener('change',ev=>{const el=ev.target.closest('[data-learn-id]');if(!el)return;if(!learningDraft)learningDraft=new Set();if(el.checked)learningDraft.add(Number(el.dataset.learnId));else learningDraft.delete(Number(el.dataset.learnId));});
+$('adoptRecords').addEventListener('click',()=>personalAction({action:'select',ids:[...(learningDraft||[])]}));
+$('adoptManual').addEventListener('click',()=>personalAction({action:'manual',temp:Number($('manualPreference').value)}));
+$('startPersonal').addEventListener('click',()=>personalAction({action:'start'}));
+$('pausePersonal').addEventListener('click',()=>setMode({auto:false}));
+$('saveForecastChannels').addEventListener('click',async()=>{try{const r=await fetch('/api/forecast',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({a:$('forecastA').value,b:$('forecastB').value})}),j=await r.json();if(!r.ok||!j.ok)throw Error(j.error||'保存失败');forecastChoicesReady=false;renderForecast(j);toast('模型测点对应已保存');}catch(e){toast(e.message);}});
+
+
+/* Spatial model: all geometry in metres; device values and control stay unchanged. */
+const HEAT = {layout:null,geom:null,edit:false,drag:null,selected:null,revision:0,savedRevision:0,queue:null,saving:false};
+const HEAT_CENTER=24.5, HEAT_SPAN=5;
+const HEAT_STOPS=[[-5,[45,85,185]],[-2.5,[52,150,215]],[-1,[60,190,190]],[0,[50,175,120]],[1,[185,190,75]],[2.5,[235,145,55]],[5,[220,65,65]]];
+const FIELD_META={t:{name:'温度',unit:'℃',lo:19.5,hi:29.5,step:.5},rh:{name:'湿度',unit:'%',lo:30,hi:80,step:5},pmv:{name:'PMV',unit:'',lo:-2,hi:2,step:.5}};
+let spacePref={view:'plan',mode:'t',layers:{field:true,contours:true,openings:true,furniture:true,labels:true,air:true}};
+try{const p=JSON.parse(localStorage.getItem('ac.space.v2')||'null');if(p){spacePref.view=p.view==='iso'?'iso':'plan';spacePref.mode=FIELD_META[p.mode]?p.mode:'t';Object.keys(spacePref.layers).forEach(k=>{if(typeof p.layers?.[k]==='boolean')spacePref.layers[k]=p.layers[k];});}}catch(e){}
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const dist=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
+function heatRGB(t){const d=t-HEAT_CENTER;for(let i=1;i<HEAT_STOPS.length;i++){if(d<=HEAT_STOPS[i][0]){const [a,ca]=HEAT_STOPS[i-1],[b,cb]=HEAT_STOPS[i],u=clamp((d-a)/(b-a),0,1);return ca.map((v,k)=>Math.round(v+(cb[k]-v)*u));}}return HEAT_STOPS.at(-1)[1];}
+function fieldRGB(v){const m=spacePref.mode;if(m==='t')return heatRGB(v);if(m==='rh')return heatRGB(19.5+(v-30)/5);return heatRGB(24.5+v*2.5);}
+function rememberSpace(){try{localStorage.setItem('ac.space.v2',JSON.stringify(spacePref));}catch(e){}}
+function heatPoints(){const ns=S.latest?.nodes||[];return (HEAT.layout?.sensors||[]).map(p=>{const n=ns.find(n=>n.id===p.id);const read=k=>n?.[k]===null||n?.[k]===undefined?null:Number.isFinite(Number(n[k]))?Number(n[k]):null;return {...p,t:read('t'+p.ch),rh:read('h'+p.ch),pmv:p.ch===1?read('pmv'):null};});}
+function wallFrame(w){const len=dist(w.a,w.b),u=[(w.b[0]-w.a[0])/len,(w.b[1]-w.a[1])/len];let n=[-u[1],u[0]];const f=HEAT.layout.fieldRegion,c=[f.x+f.w/2,f.y+f.h/2],mid=[(w.a[0]+w.b[0])/2,(w.a[1]+w.b[1])/2];if((c[0]-mid[0])*n[0]+(c[1]-mid[1])*n[1]<0)n=n.map(v=>-v);return {len,u,n,at:t=>[w.a[0]+u[0]*t,w.a[1]+u[1]*t]};}
+function wallParts(barrier){const out=[];for(const w of HEAT.layout.walls){const f=wallFrame(w);const cuts=HEAT.layout.openings.filter(o=>o.wall===w.id&&(!barrier||(o.type==='door'&&o.open))).sort((a,b)=>a.at-b.at);let at=0;for(const o of cuts){if(o.at>at)out.push({a:f.at(at),b:f.at(o.at),thickness:w.thickness,wall:w});at=Math.max(at,o.at+o.w);}if(at<f.len)out.push({a:f.at(at),b:f.at(f.len),thickness:w.thickness,wall:w});}return out;}
+function pointSeg(p,a,b){const dx=b[0]-a[0],dy=b[1]-a[1],t=clamp(((p[0]-a[0])*dx+(p[1]-a[1])*dy)/(dx*dx+dy*dy),0,1);return Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dy);}
+function segmentCross(a,b,c,d){const x=b[0]-a[0],y=b[1]-a[1],u=d[0]-c[0],v=d[1]-c[1],den=x*v-y*u;if(Math.abs(den)<1e-9)return false;const t=((c[0]-a[0])*v-(c[1]-a[1])*u)/den,s=((c[0]-a[0])*y-(c[1]-a[1])*x)/den;return t>1e-6&&t<1-1e-6&&s>=0&&s<=1;}
+function wallCount(a,b,parts){return parts.reduce((n,w)=>n+(segmentCross(a,b,w.a,w.b)?1:0),0);}
+function insideRegion(x,y){const f=HEAT.layout.fieldRegion;return x>=f.x&&x<=f.x+f.w&&y>=f.y&&y<=f.y+f.h;}
+function makeTopology(){const lay=HEAT.layout,key=JSON.stringify([lay.room.w,lay.room.h,lay.walls,lay.openings]);if(HEAT.topology?.key===key)return HEAT.topology;
+  const step=Math.max(.05,Math.max(lay.room.w,lay.room.h)/180),nx=Math.ceil(lay.room.w/step),ny=Math.ceil(lay.room.h/step),sx=lay.room.w/nx,sy=lay.room.h/ny,parts=wallParts(true),ids=new Int32Array(nx*ny).fill(-1);
+  const xy=i=>[(i%nx+.5)*sx,(Math.floor(i/nx)+.5)*sy];
+  for(let i=0;i<ids.length;i++){const p=xy(i);if(parts.some(w=>pointSeg(p,w.a,w.b)<w.thickness/2))ids[i]=-2;}
+  let component=0;const queue=new Int32Array(ids.length);
+  for(let i=0;i<ids.length;i++){if(ids[i]!==-1)continue;let head=0,tail=1;queue[0]=i;ids[i]=component;while(head<tail){const j=queue[head++],x=j%nx,y=Math.floor(j/nx),p=xy(j);for(const k of [x>0?j-1:-1,x<nx-1?j+1:-1,y>0?j-nx:-1,y<ny-1?j+nx:-1]){if(k<0||ids[k]!==-1||wallCount(p,xy(k),parts))continue;ids[k]=component;queue[tail++]=k;}}component++;}
+  const get=(x,y)=>x<0||y<0||x>lay.room.w||y>lay.room.h?-2:ids[clamp(Math.floor(y/sy),0,ny-1)*nx+clamp(Math.floor(x/sx),0,nx-1)];
+  return HEAT.topology={key,parts,get};
+}
+function interpolateAt(x,y,points=HEAT.fieldPoints,top=HEAT.topology){if(!insideRegion(x,y)||!top)return null;const comp=top.get(x,y);if(comp<0)return null;const candidates=points.filter(q=>q.comp===comp);if(!candidates.length)return null;
+  let sum=0,value=0;for(const q of candidates){const d2=(x-q.x)**2+(y-q.y)**2;const weight=Math.pow(.3,wallCount([x,y],[q.x,q.y],top.parts))/Math.pow(d2+.05,.8);sum+=weight;value+=weight*q.value;}return sum?value/sum:null;
+}
+function ensureField(){const lay=HEAT.layout,top=makeTopology(),points=heatPoints().filter(p=>p[spacePref.mode]!==null).map(p=>({...p,value:p[spacePref.mode],comp:top.get(p.x,p.y)}));const key=JSON.stringify([top.key,lay.fieldRegion,lay.grid,spacePref.mode,points.map(p=>[p.key,p.x,p.y,p.value])]);HEAT.fieldPoints=points;
+  if(HEAT.field?.key===key||HEAT.drag)return HEAT.field;
+  const f=lay.fieldRegion,dx=Math.max(lay.grid.dx,f.w/180,f.h/150),nx=Math.max(2,Math.ceil(f.w/dx)),ny=Math.max(2,Math.ceil(f.h/dx)),values=new Float64Array(nx*ny).fill(NaN),comps=new Int32Array(nx*ny),cv=document.createElement('canvas');cv.width=nx;cv.height=ny;const ctx=cv.getContext('2d'),im=ctx.createImageData(nx,ny);
+  for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){const x=f.x+(i+.5)/nx*f.w,y=f.y+(1-(j+.5)/ny)*f.h,k=j*nx+i,v=interpolateAt(x,y,points,top);comps[k]=top.get(x,y);if(v===null)continue;values[k]=v;const c=fieldRGB(v),o=k*4;im.data[o]=c[0];im.data[o+1]=c[1];im.data[o+2]=c[2];im.data[o+3]=220;}
+  ctx.putImageData(im,0,0);return HEAT.field={key,nx,ny,values,comps,cv};
+}
+function projection(w,h){const r=HEAT.layout.room,iso=spacePref.view==='iso';const raw=(x,y,z=0)=>iso?[(x-y)*.866,-(x+y)*.45-z*.8]:[x,-y];const corners=[];for(const x of [0,r.w])for(const y of [0,r.h]){corners.push(raw(x,y));if(iso)corners.push(raw(x,y,r.height));}const xs=corners.map(p=>p[0]),ys=corners.map(p=>p[1]),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),pad=w<500?23:48,s=Math.min((w-pad*2)/(maxX-minX+.2),(h-pad*2)/(maxY-minY+.2)),ox=(w-(maxX+minX)*s)/2,oy=(h-(maxY+minY)*s)/2;
+  const P=(x,y,z=0)=>{const p=raw(x,y,z);return [ox+p[0]*s,oy+p[1]*s];};
+  const inverse=(mx,my,z=0)=>{const a=(mx-ox)/s,b=(my-oy)/s;return iso?[(a/.866-(b+z*.8)/.45)/2,(-a/.866-(b+z*.8)/.45)/2]:[a,-b];};return {P,inverse,s,iso,w,h};
+}
+function pathPoly(ctx,ps,fill,stroke,width=1){ctx.beginPath();ps.forEach((p,i)=>i?ctx.lineTo(...p):ctx.moveTo(...p));ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=width;ctx.stroke();}}
+function line(ctx,a,b,color,width=1,dash=[]){ctx.beginPath();ctx.moveTo(...a);ctx.lineTo(...b);ctx.strokeStyle=color;ctx.lineWidth=width;ctx.setLineDash(dash);ctx.stroke();ctx.setLineDash([]);}
+function canvasText(ctx,p,t,color='#93acc3',size=11,align='center'){ctx.font=`${size}px system-ui`;ctx.textAlign=align;ctx.textBaseline='middle';ctx.fillStyle=color;ctx.fillText(t,...p);}
+function drawPrism(ctx,ps,height,colors){const P=HEAT.geom.P,bottom=ps.map(p=>P(...p)),top=ps.map(p=>P(...p,height));if(HEAT.geom.iso){for(let i=0;i<ps.length;i++){const j=(i+1)%ps.length;pathPoly(ctx,[bottom[i],bottom[j],top[j],top[i]],colors[1],'#61788b',.6);}}pathPoly(ctx,top,colors[0],colors[2]||'#b6c8d5',.8);}
+function drawField(ctx,field){if(!field)return;const f=HEAT.layout.fieldRegion,P=HEAT.geom.P,a=P(f.x,f.y+f.h),b=P(f.x+f.w,f.y+f.h),c=P(f.x,f.y);ctx.save();ctx.transform((b[0]-a[0])/field.nx,(b[1]-a[1])/field.nx,(c[0]-a[0])/field.ny,(c[1]-a[1])/field.ny,...a);ctx.imageSmoothingEnabled=false;ctx.drawImage(field.cv,0,0);ctx.restore();}
+function drawContours(ctx,field){if(!field)return;const {nx,ny,values:v,comps}=field,f=HEAT.layout.fieldRegion,P=HEAT.geom.P,step=FIELD_META[spacePref.mode].step,good=Array.from(v).filter(Number.isFinite);if(!good.length)return;const lo=Math.min(...good),hi=Math.max(...good);ctx.save();ctx.lineWidth=.8;ctx.strokeStyle='#eaf5ff8c';
+  for(let level=Math.ceil(lo/step)*step;level<=hi;level+=step){ctx.beginPath();for(let j=0;j<ny-1;j++)for(let i=0;i<nx-1;i++){const ks=[j*nx+i,j*nx+i+1,(j+1)*nx+i+1,(j+1)*nx+i],vs=ks.map(k=>v[k]);if(vs.some(x=>!Number.isFinite(x))||ks.some(k=>comps[k]!==comps[ks[0]]))continue;const pos=[[i,j],[i+1,j],[i+1,j+1],[i,j+1]],hits=[];for(let e=0;e<4;e++){const n=(e+1)%4;if((vs[e]<level)===(vs[n]<level))continue;const t=(level-vs[e])/(vs[n]-vs[e]);hits.push([pos[e][0]+(pos[n][0]-pos[e][0])*t,pos[e][1]+(pos[n][1]-pos[e][1])*t]);}if(hits.length===4&&(vs.reduce((s,v)=>s+v,0)/4>=level))hits.push(hits.shift());for(let k=0;k+1<hits.length;k+=2){const world=p=>[f.x+(p[0]+.5)/nx*f.w,f.y+(1-(p[1]+.5)/ny)*f.h],a=world(hits[k]),b=world(hits[k+1]);if(wallCount(a,b,HEAT.topology.parts))continue;ctx.moveTo(...P(...a));ctx.lineTo(...P(...b));}}ctx.stroke();}ctx.restore();}
+function drawWalls(ctx){const P=HEAT.geom.P,iso=HEAT.geom.iso;for(const p of wallParts(false).sort((a,b)=>(b.a[0]+b.a[1])-(a.a[0]+a.a[1]))){const dx=p.b[0]-p.a[0],dy=p.b[1]-p.a[1],len=Math.hypot(dx,dy),nx=-dy/len*p.thickness/2,ny=dx/len*p.thickness/2;drawPrism(ctx,[[p.a[0]+nx,p.a[1]+ny],[p.b[0]+nx,p.b[1]+ny],[p.b[0]-nx,p.b[1]-ny],[p.a[0]-nx,p.a[1]-ny]],iso?.38:0,['#c0cdd4','#536678','#e3edf2']);}
+  if(iso){const r=HEAT.layout.room;for(const [x,y] of [[0,0],[0,r.h],[r.w,r.h],[r.w,0]])line(ctx,P(x,y,.4),P(x,y,r.height),'#728ca25c',1,[3,5]);canvasText(ctx,P(0,r.h,r.height),`${r.height.toFixed(1)}m 层高`,'#9db8cc',10);}
+}
+function drawOpenings(ctx){const lay=HEAT.layout,P=HEAT.geom.P;for(const o of lay.openings){const w=lay.walls.find(w=>w.id===o.wall);if(!w)continue;const f=wallFrame(w),a=f.at(o.at),b=f.at(o.at+o.w);if(o.type==='door'){const hinge=o.hinge==='right'?b:a,closed=o.hinge==='right'?a:b;const tangent=[(closed[0]-hinge[0])/o.w,(closed[1]-hinge[1])/o.w],normal=o.swing==='in-right'?[f.u[1],-f.u[0]]:[-f.u[1],f.u[0]],end=o.open?[hinge[0]+normal[0]*o.w,hinge[1]+normal[1]*o.w]:closed;line(ctx,P(...hinge),P(...end),'#e4b875',2);const arc=[];for(let i=0;i<=24;i++){const t=i/24*Math.PI/2;arc.push(P(hinge[0]+o.w*(tangent[0]*Math.cos(t)+normal[0]*Math.sin(t)),hinge[1]+o.w*(tangent[1]*Math.cos(t)+normal[1]*Math.sin(t))));}ctx.beginPath();arc.forEach((p,i)=>i?ctx.lineTo(...p):ctx.moveTo(...p));ctx.strokeStyle='#b894648c';ctx.lineWidth=1;ctx.setLineDash([3,3]);ctx.stroke();ctx.setLineDash([]);
+    }else{const n=f.n.map(v=>v*w.thickness/2);drawPrism(ctx,[[a[0]+n[0],a[1]+n[1]],[b[0]+n[0],b[1]+n[1]],[b[0]-n[0],b[1]-n[1]],[a[0]-n[0],a[1]-n[1]]],HEAT.geom.iso?o.sill:0,['#6ca8bba8','#294b62','#9ed5ed']);for(const off of [-.028,.028])line(ctx,P(a[0]+f.n[0]*off,a[1]+f.n[1]*off,HEAT.geom.iso?o.sill:0),P(b[0]+f.n[0]*off,b[1]+f.n[1]*off,HEAT.geom.iso?o.sill:0),'#b8edff',1);if(HEAT.geom.iso){line(ctx,P(...a,o.sill),P(...a,o.top),'#7bbbd4',1);line(ctx,P(...b,o.sill),P(...b,o.top),'#7bbbd4',1);line(ctx,P(...a,o.top),P(...b,o.top),'#7bbbd4',1);}}
+  }
+}
+function furniturePolygon(f){const a=f.rot*Math.PI/180,c=Math.cos(a),s=Math.sin(a),ps=[[0,0],[f.w,0],[f.w,f.h],[0,f.h]].map(([x,y])=>[x*c-y*s,x*s+y*c]),minX=Math.min(...ps.map(p=>p[0])),minY=Math.min(...ps.map(p=>p[1]));return ps.map(p=>[p[0]-minX+f.x,p[1]-minY+f.y]);}
+function drawFurniture(ctx){for(const f of HEAT.layout.furniture){const ps=furniturePolygon(f);drawPrism(ctx,ps,f.height,['#60818c','#314958','#9ab4bc']);const P=HEAT.geom.P,z=HEAT.geom.iso?f.height:0;canvasText(ctx,P(ps.reduce((s,p)=>s+p[0],0)/4,ps.reduce((s,p)=>s+p[1],0)/4,z),f.label,'#e4edf4',10);if(['wardrobe','bunk-bed','desk'].includes(f.kind)){const a=ps[0],b=ps[1],c=ps[2],d=ps[3];line(ctx,P((a[0]+b[0])/2,(a[1]+b[1])/2,z),P((c[0]+d[0])/2,(c[1]+d[1])/2,z),'#c5dce0',1);}}}
+function drawAC(ctx){const ac=HEAT.layout.ac;if(!ac)return;const w=HEAT.layout.walls.find(w=>w.id===ac.wall);if(!w)return;const P=HEAT.geom.P,f=wallFrame(w),p=f.at(ac.at),z=HEAT.geom.iso?ac.height:0;
+  if(spacePref.layers.air){const angle=Math.atan2(ac.dir[1],ac.dir[0]),rays=[];for(let i=0;i<=24;i++){const a=angle-.24+i/24*.48;let length=ac.throw;const far=[p[0]+Math.cos(a)*length,p[1]+Math.sin(a)*length];for(const wall of HEAT.topology.parts){if(!segmentCross([p[0]+Math.cos(a)*.09,p[1]+Math.sin(a)*.09],far,wall.a,wall.b))continue;const dx=far[0]-p[0],dy=far[1]-p[1],u=wall.b[0]-wall.a[0],v=wall.b[1]-wall.a[1],den=dx*v-dy*u,t=((wall.a[0]-p[0])*v-(wall.a[1]-p[1])*u)/den;length=Math.min(length,Math.max(0,t*ac.throw-.06));}rays.push(P(p[0]+Math.cos(a)*length,p[1]+Math.sin(a)*length,z));}pathPoly(ctx,[P(...p,z),...rays],'#61d5f31c','#79dbf34a');for(const offset of [-.16,0,.16]){const a=angle+offset,ray=rays[Math.round((offset+.24)/.48*24)],start=P(p[0]+Math.cos(a)*.3,p[1]+Math.sin(a)*.3,z);line(ctx,start,ray,'#95e3ef9c',1,[5,5]);const theta=Math.atan2(ray[1]-start[1],ray[0]-start[0]);pathPoly(ctx,[ray,[ray[0]-7*Math.cos(theta-.4),ray[1]-7*Math.sin(theta-.4)],[ray[0]-7*Math.cos(theta+.4),ray[1]-7*Math.sin(theta+.4)]],'#8fd7e9');}}
+  const n=f.n,ps=[-.4,.4].map(t=>[p[0]+f.u[0]*t+n[0]*.04,p[1]+f.u[1]*t+n[1]*.04]);line(ctx,P(...ps[0],z),P(...ps[1],z),'#dceaf0',HEAT.geom.iso?7:9);line(ctx,P(...ps[0],z),P(...ps[1],z),'#77b8c7',2);const label=P(p[0]+n[0]*.2,p[1]+n[1]*.2,z);canvasText(ctx,[label[0],label[1]-14],`AC · ${ac.height}m`,'#c5f0fc',HEAT.geom.w<500?9:11);if(HEAT.geom.iso)line(ctx,P(...p),P(...p,z),'#89cfda6b',1,[3,4]);
+}
+function sensorMarker(p){const P=HEAT.geom.P,q=P(p.x,p.y,HEAT.geom.iso?p.z:0);if(!HEAT.geom.iso)q[0]+=p.ch===1?-5:5;return q;}
+function drawSensors(ctx){const points=heatPoints(),P=HEAT.geom.P,small=HEAT.geom.w<500;HEAT.markers=[];
+  for(const p of points){const q=sensorMarker(p),base=P(p.x,p.y);if(HEAT.geom.iso){line(ctx,base,q,p.ch===1?'#9adee87c':'#f4d6a07c',1,[2,3]);ctx.beginPath();ctx.ellipse(...base,3,2,0,0,Math.PI*2);ctx.fillStyle='#0d1625';ctx.fill();}const selected=p.key===HEAT.selected;ctx.beginPath();ctx.arc(...q,selected&&HEAT.edit?6:4,0,Math.PI*2);ctx.fillStyle=p[spacePref.mode]===null?'#586b7e':p.ch===1?'#b8f3ff':'#f7d79b';ctx.fill();ctx.strokeStyle=selected&&HEAT.edit?'#42e7ba':'#142737';ctx.lineWidth=selected&&HEAT.edit?2:1.5;ctx.stroke();HEAT.markers.push({p,q});}
+  if(!spacePref.layers.labels||small)return;
+  const groups=new Map();for(const p of points){const k=`${p.id}:${p.x}:${p.y}`;if(!groups.has(k))groups.set(k,[]);groups.get(k).push(p);}const boxes=[];ctx.font='11px system-ui';
+  for(const ps of groups.values()){const highest=ps.reduce((a,b)=>a.z>b.z?a:b),anchor=sensorMarker(highest),meta=FIELD_META[spacePref.mode];const texts=ps.map(p=>`${p.id.replace('node','n')}.${p.ch}  ${p[spacePref.mode]===null?'缺测':p[spacePref.mode].toFixed(1)+meta.unit}  · ${p.z.toFixed(1)}m`),bw=Math.max(...texts.map(t=>ctx.measureText(t).width))+18,bh=texts.length*17+10;let box;
+    const candidates=[[12,-bh-12],[-bw-12,-bh-12],[12,12],[-bw-12,12],[-bw/2,-bh-30],[-bw/2,28]];
+    let bestScore=Infinity;for(const [dx,dy] of candidates){const b={x:clamp(anchor[0]+dx,6,HEAT.geom.w-bw-6),y:clamp(anchor[1]+dy,6,HEAT.geom.h-bh-6),w:bw,h:bh};const score=boxes.reduce((sum,a)=>sum+Math.max(0,Math.min(a.x+a.w,b.x+b.w)-Math.max(a.x,b.x))*Math.max(0,Math.min(a.y+a.h,b.y+b.h)-Math.max(a.y,b.y)),0);if(score<bestScore){bestScore=score;box=b;}if(score===0)break;}
+    boxes.push(box);line(ctx,anchor,[clamp(anchor[0],box.x,box.x+box.w),clamp(anchor[1],box.y,box.y+box.h)],'#94b4c49c',1);pathPoly(ctx,[[box.x,box.y],[box.x+box.w,box.y],[box.x+box.w,box.y+box.h],[box.x,box.y+box.h]],'#0c1725e8','#3d586d',.7);texts.forEach((t,i)=>canvasText(ctx,[box.x+9,box.y+13+i*17],t,i?'#e8d6b3':'#bde8f2',11,'left'));
+  }
+}
+function drawHeat(){const cv=$('cHeat'),pr=prep(cv);if(!pr)return;const {ctx,w,h}=pr,lay=HEAT.layout;if(!lay){canvasText(ctx,[w/2,h/2],'正在读取空间模型…');return;}HEAT.geom=projection(w,h);const P=HEAT.geom.P,r=lay.room,f=lay.fieldRegion;const field=ensureField();
+  pathPoly(ctx,[[0,0],[r.w,0],[r.w,r.h],[0,r.h]].map(p=>P(...p)),'#1a2836','#536d81',1);
+  // Grid belongs to the geometric floor and remains visible when the field is off.
+  for(let x=.5;x<r.w;x+=.5)line(ctx,P(x,0),P(x,r.h),'#52677c22',.6);
+  for(let y=.5;y<r.h;y+=.5)line(ctx,P(0,y),P(r.w,y),'#52677c22',.6);
+  if(spacePref.layers.field)drawField(ctx,field);
+  if(spacePref.layers.contours)drawContours(ctx,field);
+  const corners=[[f.x,f.y],[f.x+f.w,f.y],[f.x+f.w,f.y+f.h],[f.x,f.y+f.h]];for(let i=0;i<4;i++)line(ctx,P(...corners[i]),P(...corners[(i+1)%4]),'#93d3e0b0',1,[4,4]);
+  drawWalls(ctx);if(spacePref.layers.openings)drawOpenings(ctx);if(spacePref.layers.furniture)drawFurniture(ctx);drawAC(ctx);drawSensors(ctx);
+  if(!HEAT.geom.iso){canvasText(ctx,P(.5,2.8),'侧区','#6f8ca2',w<500?8:11);canvasText(ctx,P(2.1,3.8),'附属空间','#6f8ca2',w<500?8:11);canvasText(ctx,P(5.2,3.9),'入口','#6f8ca2',w<500?8:11);}
+  const dimA=P(f.x,.0),dimB=P(f.x+f.w,.0);line(ctx,[dimA[0],dimA[1]+14],[dimB[0],dimB[1]+14],'#718ea2',1);canvasText(ctx,[(dimA[0]+dimB[0])/2,(dimA[1]+dimB[1])/2+26],`${f.w.toFixed(2)}m 测试区`,'#9eb9cc',w<500?9:11);
+  const scale=P(.15,.1),one=P(1.15,.1),len=dist(scale,one);line(ctx,[16,h-17],[16+len,h-17],'#bdd2df',2);line(ctx,[16,h-21],[16,h-13],'#bdd2df');line(ctx,[16+len,h-21],[16+len,h-13],'#bdd2df');canvasText(ctx,[16+len/2,h-29],'1m','#8da7ba',9);
+  const meta=FIELD_META[spacePref.mode],pts=HEAT.fieldPoints;$('scLo').textContent=meta.lo.toFixed(spacePref.mode==='rh'?0:1)+meta.unit;$('scHi').textContent=meta.hi.toFixed(spacePref.mode==='rh'?0:1)+meta.unit;
+  $('heatSpan').textContent=`${spacePref.view==='iso'?'等距剖切':'平面'} · ${meta.name} · ${pts.length} 路有效`;
+  $('modelDimensions').textContent=`层高 ${r.height}m · 墙厚 ${Math.round(r.wall*100)}cm`;
+  $('spacePanel').querySelector('.space-key .test-key').parentElement.lastChild.textContent=`测试区 ${f.w} × ${f.h}m`;
+  $('heatHint').textContent=`${r.note}。${spacePref.mode==='pmv'?'PMV 使用各节点 DHT1 的现有计算结果，仅作空间插值。':'不同安装高度的有效读数合并为二维 IDW 插值。'}仅蓝框内着色；跨墙权重 ×0.3，完全隔断区域分别插值。${pts.length?'悬停或轻触测试区读取估计值。':'当前场无有效读数。'}空调箭头为方向和射程示意。`;
+  document.querySelector('[data-layer="furniture"]').parentElement.hidden=!lay.furniture.length;
+}
+function syncEditor(){const lay=HEAT.layout;if(!lay)return;$('roomW').value=lay.room.w;$('roomH').value=lay.room.h;$('roomHeight').value=lay.room.height;
+  const select=$('sensorSelect'),previous=HEAT.selected||select.value;select.replaceChildren();for(const p of lay.sensors){const o=document.createElement('option');o.value=p.key;o.textContent=`${p.id} DHT${p.ch} · ${p.z}m`;select.appendChild(o);}select.value=lay.sensors.some(p=>p.key===previous)?previous:lay.sensors[0]?.key||'';HEAT.selected=select.value;const p=lay.sensors.find(p=>p.key===select.value);$('sensorZ').value=p?.z??'';$('sensorZ').max=lay.room.height;
+  const doors=$('doorSelect'),prev=doors.value;doors.replaceChildren();for(const d of lay.openings.filter(o=>o.type==='door')){const o=document.createElement('option');o.value=d.id;o.textContent=d.label;doors.appendChild(o);}if([...doors.options].some(o=>o.value===prev))doors.value=prev;const d=lay.openings.find(o=>o.id===doors.value);$('doorOpen').checked=!!d?.open;$('doorOpen').disabled=!d;
+  $('acAt').value=lay.ac?.at??'';$('acThrow').value=lay.ac?.throw??'';for(const id of ['acAt','acThrow'])$(id).disabled=!lay.ac;
+}
+function syncPoints(){HEAT.layout.points=HEAT.layout.sensors.map(p=>({...p}));}
+function layoutDirty(){HEAT.revision++;syncPoints();$('layoutStatus').textContent='待保存…';clearTimeout(HEAT.saveTimer);HEAT.saveTimer=setTimeout(saveLayout,500);}
+async function loadLayout(){try{const r=await fetch('/api/layout',{cache:'no-store'}),j=await r.json();if(!r.ok||!j.ok)throw Error(j.error||'读取失败');HEAT.layout=j.layout;syncEditor();$('layoutStatus').textContent='布局已加载';drawHeat();}catch(e){$('layoutStatus').textContent='布局读取失败，请刷新重试';}}
+async function saveLayout(){if(!HEAT.layout||HEAT.saving)return;clearTimeout(HEAT.saveTimer);HEAT.saving=true;const revision=HEAT.revision,snapshot=JSON.parse(JSON.stringify(HEAT.layout));$('layoutStatus').textContent='正在保存…';let success=false;try{const r=await fetch('/api/layout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({layout:snapshot})}),j=await r.json();if(!r.ok||!j.ok)throw Error(j.error||'保存失败');HEAT.savedRevision=revision;success=true;if(HEAT.revision===revision&&!HEAT.drag){HEAT.layout=j.layout;syncEditor();drawHeat();}$('layoutStatus').textContent=HEAT.revision===revision?'布局已保存':'待保存…';}catch(e){$('layoutStatus').textContent='保存失败 · 点击保存重试';toast('布局保存失败，请重试');}finally{HEAT.saving=false;if(success&&HEAT.revision>revision)HEAT.saveTimer=setTimeout(saveLayout,500);}}
+
+/* Pointer editing uses the inverse of the same projection, including sensor z. */
+const cvH=$('cHeat');
+function eventCanvas(ev){const r=cvH.getBoundingClientRect();return [ev.clientX-r.left,ev.clientY-r.top];}
+function hideSpaceTip(){$('spaceTip').hidden=true;}
+function showSpaceTip(ev){if(HEAT.edit||!HEAT.geom)return hideSpaceTip();const [mx,my]=eventCanvas(ev),[x,y]=HEAT.geom.inverse(mx,my),v=interpolateAt(x,y),meta=FIELD_META[spacePref.mode];if(!insideRegion(x,y))return hideSpaceTip();const tip=$('spaceTip');tip.textContent=`${meta.name}估计 ${v===null?'无数据':v.toFixed(2)+meta.unit}\nx ${x.toFixed(2)}m · y ${y.toFixed(2)}m`;tip.hidden=false;tip.style.left=clamp(mx+12,6,HEAT.geom.w-tip.offsetWidth-6)+'px';tip.style.top=clamp(my+12,6,HEAT.geom.h-tip.offsetHeight-6)+'px';}
+cvH.addEventListener('pointerdown',ev=>{if(!HEAT.edit){showSpaceTip(ev);return;}hideSpaceTip();const [mx,my]=eventCanvas(ev);const hits=(HEAT.markers||[]).filter(m=>(m.q[0]-mx)**2+(m.q[1]-my)**2<20**2).sort((a,b)=>dist(a.q,[mx,my])-dist(b.q,[mx,my]));let item=hits.find(m=>m.p.key===HEAT.selected)||hits[0],kind='sensor';if(item){item=HEAT.layout.sensors.find(p=>p.key===item.p.key);HEAT.selected=item.key;$('sensorSelect').value=item.key;$('sensorZ').value=item.z;}else if(spacePref.layers.furniture){const p=HEAT.geom.inverse(mx,my);item=[...HEAT.layout.furniture].reverse().find(f=>{const ps=furniturePolygon(f),xs=ps.map(p=>p[0]),ys=ps.map(p=>p[1]);return p[0]>=Math.min(...xs)&&p[0]<=Math.max(...xs)&&p[1]>=Math.min(...ys)&&p[1]<=Math.max(...ys);});kind='furniture';}if(!item)return;ev.preventDefault();const world=HEAT.geom.inverse(mx,my,kind==='sensor'&&HEAT.geom.iso?item.z:0);HEAT.drag={item,kind,offset:[world[0]-item.x,world[1]-item.y],start:[item.x,item.y],changed:false};cvH.setPointerCapture(ev.pointerId);cvH.style.cursor='grabbing';drawHeat();});
+cvH.addEventListener('pointermove',ev=>{if(!HEAT.drag)return showSpaceTip(ev);const drag=HEAT.drag,{item,kind}=drag,[mx,my]=eventCanvas(ev),[x,y]=HEAT.geom.inverse(mx,my,kind==='sensor'&&HEAT.geom.iso?item.z:0),r=HEAT.layout.room;let bw=0,bh=0;if(kind==='furniture'){[bw,bh]=item.rot%180?[item.h,item.w]:[item.w,item.h];}const nx=clamp(x-drag.offset[0],0,r.w-bw),ny=clamp(y-drag.offset[1],0,r.h-bh);if(HEAT.topology.parts.some(w=>pointSeg([nx,ny],w.a,w.b)<w.thickness/2+.01))return;item.x=Math.round(nx*1000)/1000;item.y=Math.round(ny*1000)/1000;drag.changed=true;drawHeat();});
+function endDrag(cancel){const drag=HEAT.drag;if(!drag)return;if(cancel){[drag.item.x,drag.item.y]=drag.start;}HEAT.drag=null;cvH.style.cursor=HEAT.edit?'grab':'default';if(drag.changed&&!cancel)layoutDirty();drawHeat();}
+cvH.addEventListener('pointerup',()=>endDrag(false));cvH.addEventListener('pointercancel',()=>endDrag(true));cvH.addEventListener('lostpointercapture',()=>endDrag(true));cvH.addEventListener('pointerleave',hideSpaceTip);
+document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{endDrag(true);spacePref.view=b.dataset.view;syncSpacePrefs();drawHeat();}));
+document.querySelectorAll('[data-layer]').forEach(c=>c.addEventListener('change',()=>{spacePref.layers[c.dataset.layer]=c.checked;rememberSpace();drawHeat();}));
+$('fieldMode').addEventListener('change',ev=>{spacePref.mode=ev.target.value;rememberSpace();drawHeat();});
+function syncSpacePrefs(){document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('on',b.dataset.view===spacePref.view));document.querySelectorAll('[data-layer]').forEach(c=>c.checked=spacePref.layers[c.dataset.layer]);$('fieldMode').value=spacePref.mode;rememberSpace();}
+$('btnEditPt').addEventListener('click',()=>{endDrag(false);HEAT.edit=!HEAT.edit;cvH.classList.toggle('edit',HEAT.edit);$('btnEditPt').classList.toggle('on',HEAT.edit);$('btnEditPt').textContent=HEAT.edit?'退出编辑':'编辑布局';$('layoutEditor').hidden=!HEAT.edit;$('btnHeatSave').hidden=!HEAT.edit;hideSpaceTip();syncEditor();drawHeat();});
+$('btnHeatSave').addEventListener('click',saveLayout);
+$('sensorSelect').addEventListener('change',ev=>{HEAT.selected=ev.target.value;const p=HEAT.layout.sensors.find(p=>p.key===HEAT.selected);$('sensorZ').value=p?.z??'';drawHeat();});
+$('sensorZ').addEventListener('change',ev=>{const p=HEAT.layout.sensors.find(p=>p.key===HEAT.selected),n=Number(ev.target.value);if(!p||!Number.isFinite(n)||ev.target.value==='')return;p.z=clamp(n,0,HEAT.layout.room.height);layoutDirty();syncEditor();drawHeat();});
+$('doorSelect').addEventListener('change',ev=>{$('doorOpen').checked=HEAT.layout.openings.find(o=>o.id===ev.target.value)?.open||false;});
+$('doorOpen').addEventListener('change',ev=>{const o=HEAT.layout.openings.find(o=>o.id===$('doorSelect').value);if(o){o.open=ev.target.checked;layoutDirty();drawHeat();}});
+for(const [id,key] of [['acAt','at'],['acThrow','throw']])$(id).addEventListener('change',ev=>{const ac=HEAT.layout.ac,n=Number(ev.target.value);if(!ac||!Number.isFinite(n)||ev.target.value==='')return;const w=HEAT.layout.walls.find(w=>w.id===ac.wall);ac[key]=clamp(n,key==='at'?0:.1,key==='at'?wallFrame(w).len:15);layoutDirty();syncEditor();drawHeat();});
+$('applyRoom').addEventListener('click',()=>{const lay=HEAT.layout,w=Number($('roomW').value),h=Number($('roomH').value),z=Number($('roomHeight').value);if(!Number.isFinite(w+h+z)||w<1||w>30||h<1||h>30||z<2||z>8)return toast('请输入有效尺寸：宽深1～30m，层高2～8m');const sx=w/lay.room.w,sy=h/lay.room.h;const oldLengths=new Map(lay.walls.map(w=>[w.id,dist(w.a,w.b)]));for(const wall of lay.walls){wall.a=[wall.a[0]*sx,wall.a[1]*sy];wall.b=[wall.b[0]*sx,wall.b[1]*sy];}for(const o of lay.openings){const wall=lay.walls.find(w=>w.id===o.wall),ratio=dist(wall.a,wall.b)/oldLengths.get(wall.id);o.at*=ratio;o.w*=ratio;if(o.type==='window'){o.sill=clamp(o.sill,0,z-.1);o.top=clamp(o.top,o.sill+.1,z);}}for(const p of lay.sensors){p.x*=sx;p.y*=sy;p.z=Math.min(z,p.z);}for(const f of lay.furniture){f.x*=sx;f.y*=sy;f.w*=f.rot%180?sy:sx;f.h*=f.rot%180?sx:sy;f.height=Math.min(z,f.height);}const f=lay.fieldRegion;f.x*=sx;f.y*=sy;f.w*=sx;f.h*=sy;if(lay.ac){const wall=lay.walls.find(w=>w.id===lay.ac.wall);lay.ac.at*=dist(wall.a,wall.b)/oldLengths.get(wall.id);lay.ac.height=Math.min(z,lay.ac.height);}Object.assign(lay.room,{w,h,height:z});layoutDirty();syncEditor();drawHeat();});
+$('btnHeatReset').addEventListener('click',async()=>{if(HEAT.saving)return toast('请等待当前保存完成');if(!confirm('用710默认布局替换当前布局？'))return;clearTimeout(HEAT.saveTimer);try{const r=await fetch('/api/layout',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}),j=await r.json();if(!r.ok||!j.ok)throw Error();HEAT.revision++;HEAT.savedRevision=HEAT.revision;HEAT.layout=j.layout;syncEditor();drawHeat();$('layoutStatus').textContent='710默认布局已保存';}catch(e){toast('恢复失败，请重试');}});
+syncSpacePrefs();
+
+
+/* ------------------------- 手机访问 ------------------------- */
+async function loadPhone(){
+  try{
+    const r = await fetch('/api/net', {cache:'no-store'});
+    const j = await r.json();
+    const url = (j.urls && j.urls[0]) || ('http://' + location.host + '/');
+    $('phoneUrl').textContent = url;
+    const img = $('qrImg');
+    img.onload = ()=>{ img.style.display='block'; };
+    img.onerror = ()=>{ img.style.display='none'; };
+    img.src = '/api/qr.svg?t=' + encodeURIComponent(url);
+  }catch(e){
+    $('phoneUrl').textContent = 'http://' + location.host + '/';
+  }
+}
+
+
+async function tick(){
+  try{
+    const r = await fetch('/api/latest', {cache:'no-store'});
+    const d = await r.json();
+    S.latest = d;
+    const on = d.summary.online || 0, tot = d.summary.total || 0;
+    $('conn').innerHTML = `<span class="dot ${on?'':'off'}"></span>` +
+      `服务器在线 · ${on}/${tot} 节点` ;
+    const dt = new Date();
+    $('clock').textContent = dt.toLocaleString('zh-CN', {hour12:false});
+    /* 舒适区可能被别的设备/滑块改过，先同步再渲染，否则颜色和曲线用的还是旧阈值 */
+    if(d.mode && d.mode.band!==null && d.mode.band!==undefined){
+      const nb = Number(d.mode.band);
+      if(Math.abs(nb - bandOf()) > 1e-9){ S.band = nb; if(S.series) renderCharts(); }
+    }
+    renderKPI(d); renderNodes(d);
+    renderIrTx(d);
+    renderMode(d.mode);
+    drawHeat();
+    const sig = d.nodes.map(n=>n.id).join(',');
+    if(sig !== S.ctrlSig){ S.ctrlSig = sig; renderCtrl(d); }
+    else{
+      /* 只更新空调状态高亮，不重建按钮（避免打断点击） */
+      document.querySelectorAll('button[data-cmd]').forEach(b=>{
+        if(b.dataset.cmd!=='ON'&&b.dataset.cmd!=='OFF') return;
+        const n = d.nodes.find(x=>x.id===b.dataset.node);
+        b.style.opacity = (n && !n.online) ? .45 : 1;
+      });
+    }
+  }catch(e){
+    $('conn').innerHTML = '<span class="dot off"></span>连不上服务器';
+  }
+
+  if(Date.now() - S.lastSeries > 30000){
+    S.lastSeries = Date.now();
+    try{
+      const r = await fetch('/api/series?hours=1&node=all', {cache:'no-store'});
+      S.series = await r.json();
+      renderCharts();
+    }catch(e){}
+  }
+}
+
+document.addEventListener('click', async ev=>{
+  const b = ev.target.closest('button[data-cmd]');
+  if(!b) return;
+  const action = b.dataset.cmd, node = b.dataset.node;
+  b.disabled = true;
+  try{
+    const r = await fetch('/api/cmd', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({node, action})
+    });
+    const j = await r.json();
+    toast(j.ok ? `已排队：${nameOf(node)} ${action}（15 秒内执行）` : ('失败：'+(j.error||'')));
+  }catch(e){ toast('发送失败，检查服务器'); }
+  setTimeout(()=>{ b.disabled=false; }, 1200);
+});
+
+window.addEventListener('resize', ()=>{ S.lastSeries = 0; setTimeout(()=>{ if(S.series) renderCharts(); drawHeat(); }, 300); });
+
+/* ------------------------- 交互绑定 ------------------------- */
+document.addEventListener('click', ev=>{
+  const mb = ev.target.closest('button[data-mode]');
+  if(!mb) return;
+  if(S.mode && S.mode.mode === mb.dataset.mode) return;
+  setMode({mode: mb.dataset.mode});
+});
+
+$('autoRun').addEventListener('change', ev=>{
+  const on = ev.target.checked;
+  if(on && !confirm('开启后，服务器会按当前模式的建议自动向板子下发调温命令。确定开启？')){
+    ev.target.checked = false; return;
+  }
+  setMode({auto: on});
+  toast(on ? '自动下发已开启' : '已回到只给建议');
+});
+
+/* ---------------- 舒适区滑块 + 红外发射测试 ---------------- */
+let bandTimer = null;
+$('bandRange').addEventListener('input', ev=>{
+  const v = Math.round(parseFloat(ev.target.value)*100)/100;
+  S.band = v;
+  $('bandVal').textContent = v.toFixed(2);
+  $('bandNow').textContent = '保存中…';
+  if(S.latest){ renderKPI(S.latest); renderNodes(S.latest); }
+  if(S.series) renderCharts();
+  $('irTestMsg').textContent = '';
+  clearTimeout(bandTimer);
+  bandTimer = setTimeout(()=>saveBand(v), 350);
+});
+
+async function saveBand(v){
+  try{
+    const r = await fetch('/api/mode', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({pmv_band: v})
+    });
+    const j = await r.json();
+    if(!j.ok){
+      toast('舒适区保存失败：'+(j.error||''));
+      $('bandNow').textContent = '保存失败，滑块再拖一次';
+      $('bandNow').style.color = 'var(--hot)';
+      return;
+    }
+    $('bandNow').style.color = '';
+    renderMode(j);
+    toast('舒适区 ±' + Number(j.band).toFixed(2) + ' 已生效');
+  }catch(e){
+    toast('舒适区保存失败，检查服务器');
+    $('bandNow').textContent = '保存失败 · 没连上服务器';
+    $('bandNow').style.color = 'var(--hot)';
+  }
+}
+
+$('btnIrTest').addEventListener('click', async ()=>{
+  const btn = $('btnIrTest'), msg = $('irTestMsg');
+  if(btn.disabled) return;
+  btn.disabled = true;
+  msg.style.color = 'var(--dim)';
+  msg.textContent = '按当前舒适区判定并下发…';
+  try{
+    const j = await (await fetch('/api/ir_test', {method:'POST'})).json();
+    if(!j.ok){
+      msg.textContent = '失败：' + (j.error || '未知原因');
+      msg.style.color = 'var(--hot)';
+      btn.disabled = false;
+      return;
+    }
+    msg.textContent = `已判定 ${j.decided==='cool'?'降温':(j.decided==='warm'?'升温':'维持')}`
+                    + ` → 下发 ${j.action} 到 ${nameOf(j.node)}，等板子取走…`
+                    + (j.note ? '（' + j.note + '）' : '');
+    for(let i=0;i<9;i++){
+      await new Promise(res=>setTimeout(res,1500));
+      const cs = await (await fetch('/api/cmds', {cache:'no-store'})).json();
+      const hit = cs.find(x=>x.id===j.cmd_id);
+      if(hit && hit.acked){
+        msg.textContent = `✔ ${j.action} 已执行（${hit.result}），红外帧已发射到空调`;
+        msg.style.color = 'var(--ok)';
+        toast('红外已发射');
+        tick();                       /* 立刻把这条记录刷进下面的发射记录 */
+        btn.disabled = false;
+        return;
+      }
+      if(hit && hit.sent)
+        msg.textContent = `${j.action} 已被板子取走，正在发射…`;
+    }
+    msg.textContent = '已下发，但 12 秒内没有回执：确认主控板在线、串口窗口能打印 [指令]';
+    msg.style.color = 'var(--hot)';
+  }catch(e){
+    msg.textContent = '下发失败，检查服务器是否在跑';
+    msg.style.color = 'var(--hot)';
+  }
+  btn.disabled = false;
+});
+
+$('btnCopyUrl').addEventListener('click', async ()=>{
+  const t = $('phoneUrl').textContent;
+  try{ await navigator.clipboard.writeText(t); toast('已复制：'+t); }
+  catch(e){
+    const ta = document.createElement('textarea');
+    ta.value = t; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); ta.remove(); toast('已复制');
+  }
+});
+
+loadLayout();
+loadPhone();
+setInterval(loadPhone, 60000);
+
+if(location.protocol !== 'file:'){ tick(); setInterval(tick, 5000); }
+</script>
+</body>
+</html>
